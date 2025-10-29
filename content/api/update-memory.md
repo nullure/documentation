@@ -389,7 +389,7 @@ om.update_memory(
 
 - Updated embeddings are re-indexed across all sectors
 - May affect query performance briefly
-- Typically completes in <100ms
+- Typically completes in less than 100ms
 
 ### Waypoint Preservation
 
