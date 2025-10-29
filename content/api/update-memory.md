@@ -65,35 +65,35 @@ interface UpdateMemoryResponse {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(api_key="your_api_key")
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Update memory content
-result = om.update_memory(
+result = om.update(
     memory_id="mem_7k9n2x4p8q",
     content="Updated: Python uses duck typing and dynamic typing"
 )
 
-print(f"Memory updated at: {result.updated_at}")
-print(f"Version: {result.version}")
+print(f"Memory updated at: {result['updated_at']}")
+print(f"Version: {result['version']}")
 ```
 
 ### Update Tags
 
 ```python
 # Add or replace tags
-result = om.update_memory(
+result = om.update(
     memory_id="mem_7k9n2x4p8q",
     tags=["python", "typing", "programming", "updated"]
 )
 
-print(f"Updated tags: {result.tags}")
+print(f"Updated tags: {result['tags']}")
 ```
 
 ### Update Metadata
 
 ```python
 # Update metadata fields
-result = om.update_memory(
+result = om.update(
     memory_id="mem_7k9n2x4p8q",
     metadata={
         "category": "programming",
@@ -104,14 +104,14 @@ result = om.update_memory(
     }
 )
 
-print(f"Updated metadata: {result.metadata}")
+print(f"Updated metadata: {result['metadata']}")
 ```
 
 ### Update Multiple Fields
 
 ```python
 # Update content, tags, and metadata together
-result = om.update_memory(
+result = om.update(
     memory_id="mem_7k9n2x4p8q",
     content="Python supports duck typing for flexible polymorphism",
     tags=["python", "oop", "design-patterns"],
@@ -122,7 +122,7 @@ result = om.update_memory(
     }
 )
 
-print(f"Memory fully updated: {result.id}")
+print(f"Memory fully updated: {result['id']}")
 ```
 
 ### TypeScript/Node.js
@@ -250,7 +250,7 @@ Status Code: `500`
 
 ```python
 # Fix a typo or incorrect information
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     content="Corrected: React 18 introduced automatic batching"
 )
@@ -260,11 +260,9 @@ om.update_memory(
 
 ```python
 # Add verification or additional context
-existing = om.get_memory("mem_xyz")
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     metadata={
-        **existing.metadata,
         "verified": True,
         "verified_by": "expert_user_123",
         "verification_date": "2025-01-20"
@@ -276,7 +274,7 @@ om.update_memory(
 
 ```python
 # Update task or issue status
-om.update_memory(
+om.update(
     memory_id="mem_task_123",
     metadata={
         "status": "completed",
@@ -290,7 +288,7 @@ om.update_memory(
 
 ```python
 # Improve memory with more detail
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     content="Docker Compose simplifies multi-container deployments by defining services, networks, and volumes in a single YAML file",
     tags=["docker", "compose", "containers", "devops", "yaml"]
@@ -302,14 +300,11 @@ om.update_memory(
 ### Preserve Important Data
 
 ```python
-# Get existing memory first
-memory = om.get_memory("mem_xyz")
-
-# Preserve tags while updating content
-om.update_memory(
+# Preserve existing data while updating
+om.update(
     memory_id="mem_xyz",
     content="New content",
-    tags=memory.tags  # Keep existing tags
+    tags=["keep", "existing", "tags"]
 )
 ```
 
@@ -317,12 +312,11 @@ om.update_memory(
 
 ```python
 # Add update metadata
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     content="Updated content",
     metadata={
-        **existing.metadata,
-        "last_updated": datetime.now().isoformat(),
+        "last_updated": "2025-01-20T10:00:00Z",
         "updated_by": "user_123",
         "update_reason": "Added more detail"
     }
@@ -336,7 +330,7 @@ om.update_memory(
 memory_ids = ["mem_1", "mem_2", "mem_3"]
 
 for mem_id in memory_ids:
-    om.update_memory(
+    om.update(
         memory_id=mem_id,
         metadata={"batch_updated": True, "batch_date": "2025-01-20"}
     )
@@ -347,15 +341,9 @@ for mem_id in memory_ids:
 ```python
 def safe_update(memory_id, **updates):
     try:
-        # Check if memory exists
-        existing = om.get_memory(memory_id)
-
         # Perform update
-        result = om.update_memory(memory_id, **updates)
+        result = om.update(memory_id, **updates)
         return result
-    except NotFoundError:
-        print(f"Memory {memory_id} not found")
-        return None
     except Exception as e:
         print(f"Update failed: {e}")
         return None
@@ -365,13 +353,7 @@ def safe_update(memory_id, **updates):
 
 ```python
 # When updating content, ensure semantic consistency
-# Consider whether the memory should be split or merged
-
-# Before: Too broad
-old = "Python is a programming language with many features"
-
-# After: More specific
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     content="Python uses dynamic typing and automatic memory management"
 )
@@ -403,16 +385,16 @@ You can update any combination of fields:
 
 ```python
 # Content only
-om.update_memory(memory_id="mem_xyz", content="New content")
+om.update(memory_id="mem_xyz", content="New content")
 
 # Tags only
-om.update_memory(memory_id="mem_xyz", tags=["new", "tags"])
+om.update(memory_id="mem_xyz", tags=["new", "tags"])
 
 # Metadata only
-om.update_memory(memory_id="mem_xyz", metadata={"key": "value"})
+om.update(memory_id="mem_xyz", metadata={"key": "value"})
 
 # Any combination
-om.update_memory(
+om.update(
     memory_id="mem_xyz",
     content="New content",
     tags=["tag1", "tag2"]

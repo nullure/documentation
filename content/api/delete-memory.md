@@ -44,12 +44,12 @@ interface DeleteMemoryResponse {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(api_key="your_api_key")
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Delete a memory
-result = om.delete_memory("mem_7k9n2x4p8q")
+result = om.delete("mem_7k9n2x4p8q")
 
-if result.ok:
+if result["ok"]:
     print("Memory deleted successfully")
 ```
 
@@ -244,12 +244,12 @@ Memory A     (orphaned)     Memory C
 
 ```python
 # Delete deprecated or incorrect memories
-memories = om.query("outdated python 2 syntax")
+result = om.query("outdated python 2 syntax", k=50)
 
-for memory in memories:
-    if "python 2" in memory.metadata.get("version", ""):
-        om.delete_memory(memory.id)
-        print(f"Deleted outdated: {memory.content[:50]}")
+for match in result["matches"]:
+    if "python 2" in match.get("metadata", {}).get("version", ""):
+        om.delete(match["id"])
+        print(f"Deleted outdated: {match['content'][:50]}")
 ```
 
 ### Privacy Compliance
@@ -259,12 +259,13 @@ for memory in memories:
 user_id = "user_123"
 
 # Find all memories related to user
-memories = om.query_all(metadata_filter={"user_id": user_id})
+result = om.all(limit=1000)
 
-for memory in memories:
-    om.delete_memory(memory.id)
+for memory in result["items"]:
+    if memory.get("metadata", {}).get("user_id") == user_id:
+        om.delete(memory["id"])
 
-print(f"Deleted {len(memories)} memories for user {user_id}")
+print(f"Deleted memories for user {user_id}")
 ```
 
 ### Prune Low-Quality Memories
@@ -273,12 +274,12 @@ print(f"Deleted {len(memories)} memories for user {user_id}")
 # Remove weak or decayed memories
 threshold = 0.15
 
-memories = om.query_all(limit=10000)
+result = om.all(limit=10000)
 deleted = 0
 
-for memory in memories:
-    if memory.strength < threshold:
-        om.delete_memory(memory.id)
+for memory in result["items"]:
+    if memory["salience"] < threshold:
+        om.delete(memory["id"])
         deleted += 1
 
 print(f"Pruned {deleted} weak memories")
@@ -290,12 +291,12 @@ print(f"Pruned {deleted} weak memories")
 # Delete session-specific memories after session ends
 session_id = "session_xyz"
 
-memories = om.query_all(
-    metadata_filter={"session_id": session_id, "temporary": True}
-)
+result = om.all(limit=1000)
 
-for memory in memories:
-    om.delete_memory(memory.id)
+for memory in result["items"]:
+    metadata = memory.get("metadata", {})
+    if metadata.get("session_id") == session_id and metadata.get("temporary"):
+        om.delete(memory["id"])
 
 print(f"Cleaned up session {session_id}")
 ```
@@ -304,12 +305,11 @@ print(f"Cleaned up session {session_id}")
 
 ```python
 # Clean up after testing
-test_memories = om.query_all(
-    metadata_filter={"environment": "test"}
-)
+result = om.all(limit=1000)
 
-for memory in test_memories:
-    om.delete_memory(memory.id)
+for memory in result["items"]:
+    if memory.get("metadata", {}).get("environment") == "test":
+        om.delete(memory["id"])
 
 print("Test data removed")
 ```
@@ -440,40 +440,35 @@ om.update_memory(
 ```python
 def delete_by_query(query, limit=100):
     """Delete memories matching a query."""
-    results = om.query(query, limit=limit)
+    result = om.query(query, k=limit)
 
     deleted_ids = []
-    for result in results:
+    for match in result["matches"]:
         try:
-            om.delete_memory(result.id)
-            deleted_ids.append(result.id)
+            om.delete(match["id"])
+            deleted_ids.append(match["id"])
         except Exception as e:
-            print(f"Failed to delete {result.id}: {e}")
+            print(f"Failed to delete {match['id']}: {e}")
 
     return deleted_ids
 ```
 
-### Delete by Metadata
+### Delete by Sector
 
-```python
-def delete_by_metadata(filters):
-    """Delete memories matching metadata filters."""
-    memories = om.query_all(metadata_filter=filters)
+````python
+def delete_by_sector(sector, limit=1000):
+    """Delete memories from a specific sector."""
+    result = om.get_by_sector(sector, limit=limit)
 
-    for memory in memories:
-        om.delete_memory(memory.id)
+    for memory in result["items"]:
+        om.delete(memory["id"])
 
-    return len(memories)
+    return len(result["items"])
 
 # Usage
-deleted = delete_by_metadata({
-    "source": "old_api",
-    "version": "1.0"
-})
-print(f"Deleted {deleted} memories")
-```
-
-### Delete Old Memories
+deleted = delete_by_sector("reflective")
+print(f"Deleted {deleted} memories from reflective sector")
+```### Delete Old Memories
 
 ```python
 from datetime import datetime, timedelta
@@ -495,7 +490,7 @@ def delete_older_than(days):
 # Delete memories older than 1 year
 count = delete_older_than(365)
 print(f"Deleted {count} old memories")
-```
+````
 
 ## Recovery Options
 
@@ -526,14 +521,6 @@ def purge_soft_deleted():
     for memory in memories:
         om.delete_memory(memory.id)
 ```
-
-## Rate Limits
-
-| Plan       | Deletes/min | Daily Limit |
-| ---------- | ----------- | ----------- |
-| Free       | 50          | 1,000       |
-| Pro        | 500         | 50,000      |
-| Enterprise | Unlimited   | Unlimited   |
 
 ## Related Endpoints
 

@@ -177,32 +177,36 @@ HMD v2 uses tiered decay rates based on importance:
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory()
+om = OpenMemory(base_url="http://localhost:8080")
 
 # Add memory with custom decay rate
-om.add_memory(
+om.add(
     content="Critical system configuration",
-    decay_rate=0.99,  # Very slow decay
-    initial_strength=0.95
+    salience=0.95,  # High importance
+    decay_lambda=0.03  # Very slow decay
 )
 
 # Update existing memory decay rate
-om.update_memory(
+om.update(
     memory_id="mem_123",
-    decay_rate=0.97
+    metadata={"decay_lambda": 0.05}
 )
 ```
 
-### Global Decay Settings
+### Brain Sector Configuration
+
+Different sectors have different default decay rates:
 
 ```python
-# Configure default decay behavior
-om.configure_decay(
-    default_decay_rate=0.95,
-    min_strength_threshold=0.1,  # Archive below this
-    auto_reinforce_on_access=True,
-    reinforcement_strength=0.15
-)
+# Get sector configurations
+sectors = om.get_sectors()
+
+# Sectors have predefined decay characteristics:
+# - episodic: λ = 0.15 (faster decay for events)
+# - semantic: λ = 0.05 (slower decay for facts)
+# - procedural: λ = 0.08 (moderate for habits)
+# - emotional: λ = 0.20 (fast decay for emotions)
+# - reflective: λ = 0.25 (fastest for logs)
 ```
 
 ## Reinforcement Strategies
@@ -213,21 +217,23 @@ User-triggered strengthening:
 
 ```python
 # Manually reinforce a memory
-om.reinforce_memory(
+om.reinforce(
     memory_id="mem_123",
-    strength_boost=0.3
+    boost=0.2  # Increase salience
 )
 ```
 
 ### Implicit Reinforcement
 
-Automatic strengthening on access:
+Automatic strengthening on retrieval:
 
-```python
-# Occurs automatically during query
-results = om.query("important topic")
-# All returned memories are implicitly reinforced
-```
+````python
+# Query and reinforce
+results = om.query("important topic", k=5)
+
+# Reinforce memories that were useful
+for match in results["matches"]:
+    om.reinforce(match["id"], boost=0.05)
 
 ### Spaced Repetition
 
@@ -244,7 +250,7 @@ def schedule_review(memory, performance):
     else:  # Hard
         memory.decay_rate = max(0.90, memory.decay_rate - 0.02)
         return 1  # Review tomorrow
-```
+````
 
 ## Query-Time Strength Adjustment
 

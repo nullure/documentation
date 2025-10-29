@@ -18,44 +18,40 @@ POST /api/query
 ```typescript
 interface QueryRequest {
   query: string;
-  limit?: number;
-  max_hops?: number;
-  min_strength?: number;
-  sector_id?: string;
-  metadata_filter?: Record<string, any>;
-  include_paths?: boolean;
+  k?: number;
+  filters?: {
+    sector?: string;
+    min_score?: number;
+    tags?: string[];
+  };
 }
 ```
 
 ### Parameters
 
-| Parameter         | Type    | Required | Default | Description             |
-| ----------------- | ------- | -------- | ------- | ----------------------- |
-| `query`           | string  | Yes      | -       | Search query text       |
-| `limit`           | number  | No       | `10`    | Max results to return   |
-| `max_hops`        | number  | No       | `3`     | Multi-hop depth         |
-| `min_strength`    | number  | No       | `0.3`   | Minimum memory strength |
-| `sector_id`       | string  | No       | `null`  | Search within sector    |
-| `metadata_filter` | object  | No       | `{}`    | Filter by metadata      |
-| `include_paths`   | boolean | No       | `true`  | Include traversal paths |
+| Parameter | Type   | Required | Default | Description                          |
+| --------- | ------ | -------- | ------- | ------------------------------------ |
+| `query`   | string | Yes      | -       | Search query text                    |
+| `k`       | number | No       | `8`     | Number of results to return          |
+| `filters` | object | No       | `{}`    | Optional filters (sector, min_score) |
 
 ## Response
 
 ```typescript
 interface QueryResponse {
-  results: MemoryResult[];
-  query_time_ms: number;
-  total_memories_searched: number;
+  query: string;
+  matches: MemoryMatch[];
 }
 
-interface MemoryResult {
+interface MemoryMatch {
   id: string;
   content: string;
   score: number;
-  strength: number;
-  hops: number;
-  path?: string[];
-  metadata: Record<string, any>;
+  sectors: string[];
+  primary_sector: string;
+  path: string[];
+  salience: number;
+  last_seen_at: string;
 }
 ```
 
@@ -66,66 +62,107 @@ interface MemoryResult {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(api_key="your_api_key")
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Simple search
-results = om.query(
+result = om.query(
     query="How does Python handle memory management?",
-    limit=5
+    k=5
 )
 
-for result in results:
-    print(f"Score: {result.score:.3f}")
-    print(f"Content: {result.content}")
+for match in result["matches"]:
+    print(f"Score: {match['score']:.3f}")
+    print(f"Content: {match['content']}")
+    print(f"Sector: {match['primary_sector']}")
     print("---")
 ```
 
-### Multi-hop Query
+### Query Specific Sector
 
 ```python
-# Navigate through related memories
-results = om.query(
-    query="machine learning optimization",
-    max_hops=4,
-    include_paths=True
+# Query within a specific brain sector
+result = om.query_sector(
+    query="user preferences",
+    sector="semantic",
+    k=10
 )
 
-for result in results:
-    print(f"Found after {result.hops} hops")
-    print(f"Path: {' → '.join(result.path)}")
-    print(f"Content: {result.content}")
+for match in result["matches"]:
+    print(f"{match['score']:.2f} - {match['content']}")
 ```
 
 ### Filtered Query
 
 ```python
-# Filter by metadata and sector
-results = om.query(
+# Filter by minimum score
+result = om.query(
     query="authentication patterns",
-    sector_id="work/backend",
-    metadata_filter={
-        "language": "python",
-        "verified": True
-    },
-    min_strength=0.5
+    k=10,
+    filters={
+        "sector": "semantic",
+        "min_score": 0.7
+    }
 )
+
+print(f"Found {len(result['matches'])} high-confidence matches")
 ```
 
-### TypeScript
+### TypeScript Example
 
 ```typescript
-const results = await om.query({
-  query: 'React hooks best practices',
-  limit: 10,
-  maxHops: 2,
-  metadataFilter: {
-    category: 'react',
+const om = new OpenMemory({
+  baseUrl: "http://localhost:8080",
+  apiKey: "your_api_key",
+});
+
+const result = await om.query({
+  query: "React hooks best practices",
+  k: 10,
+  filters: {
+    sector: "semantic",
   },
 });
 
-results.forEach((r) => {
-  console.log(`${r.score}: ${r.content}`);
+result.matches.forEach((match) => {
+  console.log(`${match.score}: ${match.content}`);
 });
 ```
 
-See [Add Memory](/docs/api/add-memory) for creating memories and [Reinforcement](/docs/api/reinforce) for strengthening them.
+## Brain Sector Queries
+
+Query specific brain sectors for targeted retrieval:
+
+```python
+# Query episodic memories (events, temporal data)
+events = om.query_sector("What happened yesterday?", "episodic")
+
+# Query semantic memories (facts, preferences)
+facts = om.query_sector("What's the user's favorite IDE?", "semantic")
+
+# Query procedural memories (habits, patterns)
+habits = om.query_sector("How does user typically start coding?", "procedural")
+
+# Query emotional memories (sentiment states)
+emotions = om.query_sector("When was user frustrated?", "emotional")
+
+# Query reflective memories (meta-memory, logs)
+logs = om.query_sector("System activity logs", "reflective")
+```
+
+## Understanding Scores
+
+The `score` returned for each match combines multiple factors:
+
+- **Similarity**: Vector cosine similarity to the query
+- **Salience**: Memory importance (boosted by reinforcement)
+- **Decay**: Time-based decay using exponential function
+- **Sector match**: Bonus for querying within the correct sector
+
+Higher scores indicate better matches. Typical score ranges:
+
+- `0.8-1.0`: Excellent match
+- `0.6-0.8`: Good match
+- `0.4-0.6`: Moderate match
+- `<0.4`: Weak match
+
+See [Add Memory](/docs/api/add-memory) for creating memories and [Reinforce](/docs/api/reinforce) for strengthening them.

@@ -49,105 +49,115 @@ When you add memories, OpenMemory automatically:
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory()
+om = OpenMemory(base_url="http://localhost:8080")
 
-# Memory is automatically assigned to appropriate sector
-om.add_memory(
-    content="Python decorators are powerful for metaprogramming",
-    auto_sector=True  # Default behavior
+# Memory is automatically assigned to appropriate brain sector
+result = om.add(
+    content="Python decorators are powerful for metaprogramming"
 )
+
+print(f"Assigned to sector: {result['primary_sector']}")
 ```
 
-### Manual Sector Management
+### Manual Sector Assignment
 
-You can also explicitly manage sectors:
+You can explicitly assign memories to specific brain sectors:
 
 ```python
-# Create a specific sector
-sector_id = om.create_sector(
-    name="Python Learning",
-    parent_sector="Learning/Programming"
+# Add to semantic sector (facts & knowledge)
+om.add(
+    content="List comprehensions are faster than loops in Python",
+    metadata={"sector": "semantic"}
 )
 
-# Add memory to specific sector
-om.add_memory(
-    content="List comprehensions are faster than loops",
-    sector_id=sector_id
+# Add to episodic sector (events & experiences)
+om.add(
+    content="Deployed version 2.0 to production at 3pm today",
+    metadata={"sector": "episodic"}
 )
 
-# Query within a sector
-results = om.query(
+# Query within a specific sector
+result = om.query_sector(
     query="performance tips",
-    sector_id=sector_id
+    sector="semantic"
 )
 ```
+
+## Brain Sectors (HMD v2)
+
+OpenMemory uses 5 brain-inspired sectors based on the HMD v2 specification:
+
+### 1. **Episodic** - Event Memories
+
+- Temporal experiences and events
+- What happened, when it happened
+- Example: "Met with client at 3pm yesterday"
+
+### 2. **Semantic** - Facts & Knowledge
+
+- Factual information, preferences, concepts
+- Timeless knowledge
+- Example: "Python uses dynamic typing"
+
+### 3. **Procedural** - Habits & Patterns
+
+- Behavioral patterns, triggers, workflows
+- How things are done
+- Example: "User always commits before switching branches"
+
+### 4. **Emotional** - Sentiment States
+
+- Emotional context and sentiment
+- Feelings and reactions
+- Example: "User expressed frustration with build times"
+
+### 5. **Reflective** - Meta-Memory & Logs
+
+- System logs, audit trails, meta-information
+- Memory about memories
+- Example: "Recalculated sector weights at midnight"
 
 ## Sector Properties
 
-### Metadata
+### Decay Rates
 
-Each sector maintains metadata:
-
-```json
-{
-  "id": "sector_abc123",
-  "name": "AI/ML Research",
-  "parent": "Learning",
-  "created_at": "2025-01-15T10:30:00Z",
-  "memory_count": 247,
-  "topics": ["neural networks", "transformers", "attention"],
-  "last_accessed": "2025-01-20T14:22:00Z",
-  "decay_multiplier": 0.95
-}
-```
-
-### Decay Multiplier
-
-Each sector has a decay multiplier that affects all memories within:
-
-- **Active sectors** (frequently accessed): 0.90-0.95 (slower decay)
-- **Normal sectors**: 0.95-0.98
-- **Archived sectors**: 0.98-0.99 (faster decay)
+Each sector has its own decay characteristics:
 
 ```python
-# Adjust sector decay rate
-om.update_sector(
-    sector_id="sector_abc123",
-    decay_multiplier=0.90  # Preserve these memories longer
-)
+# Get sector information
+sectors_info = om.get_sectors()
+
+print(sectors_info)
+# {
+#   "episodic": {"decay_lambda": 0.15, "count": 230},
+#   "semantic": {"decay_lambda": 0.05, "count": 450},
+#   "procedural": {"decay_lambda": 0.08, "count": 120},
+#   "emotional": {"decay_lambda": 0.20, "count": 89},
+#   "reflective": {"decay_lambda": 0.25, "count": 340}
+# }
 ```
 
 ## Sector Operations
 
-### List Sectors
+### Query by Sector
 
 ```python
-# Get all sectors
-sectors = om.list_sectors()
-
-for sector in sectors:
-    print(f"{sector.name}: {sector.memory_count} memories")
+# Query specific brain sectors
+episodic_memories = om.query_sector("what happened yesterday", "episodic")
+semantic_facts = om.query_sector("Python features", "semantic")
+procedures = om.query_sector("user workflow", "procedural")
+emotions = om.query_sector("frustrations", "emotional")
+logs = om.query_sector("system events", "reflective")
 ```
 
-### Sector Statistics
+### List All Memories by Sector
 
 ```python
-# Get detailed sector stats
-stats = om.get_sector_stats(sector_id)
+# Get all memories from a sector
+result = om.get_by_sector("semantic", limit=100)
 
-print(f"Total memories: {stats.memory_count}")
-print(f"Avg strength: {stats.avg_strength}")
-print(f"Top topics: {stats.top_topics}")
-print(f"Last access: {stats.last_accessed}")
-```
-
-### Move Memories
-
-```python
-# Move memory to different sector
-om.move_memory(
-    memory_id="mem_xyz789",
-    target_sector="Work/Project B"
+for memory in result["items"]:
+    print(memory["content"])
 )
 
 # Merge sectors

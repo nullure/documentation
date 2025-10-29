@@ -24,28 +24,22 @@ X-API-Key: your_api_key_here
 ```typescript
 interface AddMemoryRequest {
   content: string;
-  metadata?: Record<string, any>;
-  decay_rate?: number;
-  initial_strength?: number;
-  sector_id?: string;
-  auto_sector?: boolean;
-  embedding?: number[];
   tags?: string[];
+  metadata?: Record<string, any>;
+  salience?: number;
+  decay_lambda?: number;
 }
 ```
 
 ### Parameters
 
-| Parameter          | Type     | Required | Default | Description                 |
-| ------------------ | -------- | -------- | ------- | --------------------------- |
-| `content`          | string   | Yes      | -       | The memory content to store |
-| `metadata`         | object   | No       | `{}`    | Additional metadata         |
-| `decay_rate`       | number   | No       | `0.95`  | Decay rate (0.0-1.0)        |
-| `initial_strength` | number   | No       | `0.8`   | Initial strength (0.0-1.0)  |
-| `sector_id`        | string   | No       | `null`  | Specific sector ID          |
-| `auto_sector`      | boolean  | No       | `true`  | Auto-assign sector          |
-| `embedding`        | number[] | No       | `null`  | Pre-computed embedding      |
-| `tags`             | string[] | No       | `[]`    | Tags for categorization     |
+| Parameter      | Type     | Required | Default | Description                                    |
+| -------------- | -------- | -------- | ------- | ---------------------------------------------- |
+| `content`      | string   | Yes      | -       | The memory content to store                    |
+| `tags`         | string[] | No       | `[]`    | Tags for categorization                        |
+| `metadata`     | object   | No       | `{}`    | Additional metadata (can include 'sector' key) |
+| `salience`     | number   | No       | `0.5`   | Memory importance/strength (0.0-1.0)           |
+| `decay_lambda` | number   | No       | sector  | Custom decay rate (overrides sector default)   |
 
 ## Response
 
@@ -53,12 +47,12 @@ interface AddMemoryRequest {
 interface AddMemoryResponse {
   id: string;
   content: string;
-  sector_id: string;
-  strength: number;
-  decay_rate: number;
-  embedding_dimensions: number;
+  primary_sector: string;
+  sectors: string[];
+  salience: number;
+  decay_lambda: number;
   created_at: string;
-  waypoints_created: number;
+  version: number;
 }
 ```
 
@@ -69,46 +63,47 @@ interface AddMemoryResponse {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(api_key="your_api_key")
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Simple memory addition
-memory_id = om.add_memory(
+result = om.add(
     content="Python uses duck typing for polymorphism"
 )
 
-print(f"Memory created: {memory_id}")
+print(f"Memory created: {result['id']}")
+print(f"Assigned to sector: {result['primary_sector']}")
 ```
 
-### With Metadata
+### With Tags and Metadata
 
 ```python
-memory_id = om.add_memory(
+result = om.add(
     content="Docker Compose simplifies multi-container deployments",
+    tags=["docker", "containers", "devops"],
     metadata={
         "category": "devops",
         "source": "tutorial",
-        "difficulty": "intermediate",
-        "tags": ["docker", "containers", "deployment"]
+        "difficulty": "intermediate"
     }
 )
 ```
 
-### Custom Decay Settings
+### Custom Salience and Decay
 
 ```python
-# Important memory - slow decay
-important_id = om.add_memory(
+# Important memory - high salience, slow decay
+important = om.add(
     content="Database backup runs daily at 2 AM UTC",
-    decay_rate=0.99,  # Very slow decay
-    initial_strength=0.95,
+    salience=0.9,  # High importance
+    decay_lambda=0.05,  # Slow decay
     metadata={"importance": "critical"}
 )
 
-# Temporary context - fast decay
-temp_id = om.add_memory(
+# Temporary context - faster decay
+temp = om.add(
     content="User is currently debugging authentication bug",
-    decay_rate=0.88,  # Fast decay
-    initial_strength=0.7,
+    salience=0.6,
+    decay_lambda=0.2,  # Faster decay
     metadata={"type": "session_context"}
 )
 ```
@@ -116,41 +111,42 @@ temp_id = om.add_memory(
 ### Specific Sector
 
 ```python
-# Add to specific sector
-memory_id = om.add_memory(
+# Add to specific brain sector
+result = om.add(
     content="React hooks must follow the rules of hooks",
-    sector_id="learning/react",
-    auto_sector=False  # Don't auto-assign
+    metadata={"sector": "semantic"},  # Explicit sector assignment
+    tags=["react", "rules", "hooks"]
 )
 ```
 
 ### Batch Addition
 
 ```python
-# Add multiple memories efficiently
+# Add multiple memories
 memories = [
-    {"content": "Memory 1", "metadata": {"batch": 1}},
-    {"content": "Memory 2", "metadata": {"batch": 1}},
-    {"content": "Memory 3", "metadata": {"batch": 1}},
+    "User prefers dark mode in IDE",
+    "Favorite programming language is Python",
+    "Works best in the morning"
 ]
 
-results = om.add_memories_batch(memories)
+for content in memories:
+    result = om.add(content=content, tags=["preferences"])
 print(f"Added {len(results)} memories")
 ```
 
 ### TypeScript/Node.js
 
 ```typescript
-import { OpenMemory } from '@openmemory/sdk';
+import { OpenMemory } from "@openmemory/sdk";
 
-const om = new OpenMemory({ apiKey: 'your_api_key' });
+const om = new OpenMemory({ apiKey: "your_api_key" });
 
 // Add memory
 const result = await om.addMemory({
-  content: 'GraphQL provides type-safe API queries',
+  content: "GraphQL provides type-safe API queries",
   metadata: {
-    category: 'web_development',
-    topics: ['graphql', 'api', 'typescript'],
+    category: "web_development",
+    topics: ["graphql", "api", "typescript"],
   },
   decayRate: 0.96,
   initialStrength: 0.85,
@@ -228,27 +224,12 @@ curl -X POST https://your-domain.com/api/memory \
 
 ## Advanced Options
 
-### Pre-computed Embeddings
-
-If you've already computed embeddings:
-
-```python
-import numpy as np
-
-# Your pre-computed embedding (e.g., from OpenAI)
-embedding = np.array([0.1, 0.2, ...])  # 384 or 1536 dimensions
-
-memory_id = om.add_memory(
-    content="Content here",
-    embedding=embedding.tolist()
-)
-```
-
 ### Rich Metadata
 
 ```python
-memory_id = om.add_memory(
+result = om.add(
     content="User reported bug in payment processing",
+    tags=["issue", "bug", "payment"],
     metadata={
         "type": "issue",
         "priority": "high",
@@ -267,46 +248,70 @@ memory_id = om.add_memory(
 )
 ```
 
-### Auto-linking
+### Brain Sector Routing
 
-Automatically create waypoints to similar memories:
+OpenMemory automatically routes memories to appropriate brain sectors:
 
 ```python
-memory_id = om.add_memory(
-    content="Content here",
-    auto_link=True,  # Create waypoints to similar memories
-    link_threshold=0.75,  # Minimum similarity
-    max_links=5  # Maximum waypoints to create
+# Episodic (event memory)
+om.add(
+    content="Met with client at 3pm to discuss Q4 roadmap",
+    metadata={"sector": "episodic"}
+)
+
+# Semantic (facts & knowledge)
+om.add(
+    content="Python uses dynamic typing and GC",
+    metadata={"sector": "semantic"}
+)
+
+# Procedural (habits & patterns)
+om.add(
+    content="User always commits before switching branches",
+    metadata={"sector": "procedural"}
+)
+
+# Emotional (sentiment states)
+om.add(
+    content="User expressed frustration with slow build times",
+    metadata={"sector": "emotional"}
+)
+
+# Reflective (meta-memory & logs)
+om.add(
+    content="Memory system recalculated sector weights",
+    metadata={"sector": "reflective"}
 )
 ```
 
 ## Best Practices
 
-### 1. Choose Appropriate Decay Rates
+### Choose Appropriate Salience and Decay
 
 ```python
-# System configuration - very slow decay
-om.add_memory("API key: abc123", decay_rate=0.99)
+# System configuration - high salience, slow decay
+om.add("API key: abc123", salience=0.95, decay_lambda=0.03)
 
-# User preferences - slow decay
-om.add_memory("User prefers dark mode", decay_rate=0.97)
+# User preferences - medium-high salience
+om.add("User prefers dark mode", salience=0.8, decay_lambda=0.1)
 
-# General knowledge - normal decay
-om.add_memory("Python tip: use enumerate()", decay_rate=0.95)
+# General knowledge - medium salience
+om.add("Python tip: use enumerate()", salience=0.6)
 
-# Session context - fast decay
-om.add_memory("User editing profile.tsx", decay_rate=0.90)
+# Session context - medium salience, faster decay
+om.add("User editing profile.tsx", salience=0.5, decay_lambda=0.15)
 
-# Temporary data - very fast decay
-om.add_memory("Cache warmed", decay_rate=0.85)
+# Temporary data - low salience, fast decay
+om.add("Cache warmed", salience=0.3, decay_lambda=0.25)
 ```
 
-### 2. Use Meaningful Metadata
+### Use Meaningful Metadata
 
 ```python
 # Good metadata structure
-om.add_memory(
+om.add(
     content="...",
+    tags=["python", "tutorial"],
     metadata={
         "source": "documentation",
         "version": "2.0",
@@ -318,82 +323,52 @@ om.add_memory(
 )
 ```
 
-### 3. Organize with Sectors
+### Organize with Brain Sectors
 
 ```python
-# Let OpenMemory auto-organize
-om.add_memory("Content", auto_sector=True)
+# Automatic sector assignment
+om.add(content="Content")  # Sector determined by content
 
-# Or manually organize
-om.add_memory("Content", sector_id="work/project_a/docs")
+# Manual sector specification
+om.add(content="Content", metadata={"sector": "semantic"})
 ```
 
-### 4. Batch Operations
+### Batch Operations
 
 ```python
-# More efficient than individual adds
-memories = [
-    {"content": f"Memory {i}", "metadata": {"index": i}}
-    for i in range(100)
-]
-om.add_memories_batch(memories, batch_size=50)
+# Add multiple memories with loop
+for item in ["fact 1", "fact 2", "fact 3"]:
+    om.add(content=item, tags=["batch"])
 ```
 
-### 5. Handle Errors Gracefully
+### Handle Errors Gracefully
 
 ```python
 try:
-    memory_id = om.add_memory(content="...")
-except ValidationError as e:
-    print(f"Invalid input: {e}")
-except RateLimitError as e:
-    print(f"Rate limited: {e}")
-    time.sleep(60)
-    # Retry
+    result = om.add(content="...")
 except Exception as e:
-    print(f"Unexpected error: {e}")
+    print(f"Error: {e}")
 ```
 
 ## Performance Considerations
 
 ### Content Length
 
-- **Optimal**: 50-500 characters per memory
+- **Optimal**: 50-1000 characters per memory
 - **Maximum**: 10,000 characters
-- **Recommendation**: Split long content into chunks
-
-```python
-# Split long content
-def chunk_text(text, chunk_size=500, overlap=50):
-    chunks = []
-    for i in range(0, len(text), chunk_size - overlap):
-        chunks.append(text[i:i + chunk_size])
-    return chunks
-
-long_content = "..." # Very long text
-for chunk in chunk_text(long_content):
-    om.add_memory(chunk)
-```
+- **Recommendation**: Split long documents using ingestion API
 
 ### Embedding Generation
 
-- **Local embeddings**: ~50ms per memory
-- **OpenAI API**: ~200ms per memory
-- **Batch embedding**: More efficient for multiple memories
+- **Local embeddings**: ~50-100ms per memory
+- **Remote API**: ~200-500ms per memory
+- **Multi-sector**: 5x embedding calls in advanced mode
 
-### Waypoint Creation
+### Memory Operations
 
-- Automatic waypoint creation adds ~10-50ms
-- Depends on number of existing memories
-- Disabled with `auto_link=False`
-
-## Rate Limits
-
-| Plan       | Requests/min | Daily Limit |
-| ---------- | ------------ | ----------- |
-| Free       | 10           | 1,000       |
-| Pro        | 100          | 100,000     |
-| Enterprise | Unlimited    | Unlimited   |
+- Add operation: ~100-500ms depending on embedding mode
+- Automatic sector classification based on content
+- Vector indexing happens synchronously
 
 ## Related Endpoints
 

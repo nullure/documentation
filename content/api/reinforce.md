@@ -17,10 +17,8 @@ POST /api/reinforce
 
 ```typescript
 interface ReinforceRequest {
-  memory_id: string;
-  strength_boost?: number;
-  feedback?: 'positive' | 'negative' | 'neutral';
-  metadata?: Record<string, any>;
+  id: string;
+  boost?: number;
 }
 ```
 
@@ -29,45 +27,48 @@ interface ReinforceRequest {
 ### Basic Reinforcement
 
 ```python
-om = OpenMemory()
+from openmemory import OpenMemory
+
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Strengthen a memory
-om.reinforce_memory(
+result = om.reinforce(
     memory_id="mem_abc123",
-    strength_boost=0.2
+    boost=0.1  # Increase salience by 0.1
 )
+
+print(f"Memory reinforced: {result['ok']}")
 ```
 
-### User Feedback
+### Stronger Reinforcement
 
 ```python
-# Positive feedback strengthens
-om.reinforce_memory(
+# Apply stronger boost for important memories
+om.reinforce(
     memory_id="mem_xyz789",
-    feedback="positive",
-    metadata={"reason": "user_liked"}
-)
-
-# Negative feedback weakens
-om.reinforce_memory(
-    memory_id="mem_bad456",
-    feedback="negative",
-    strength_boost=-0.15
+    boost=0.3  # Larger salience boost
 )
 ```
 
-### Spaced Repetition
+### Automatic Reinforcement on Query
+
+```python
+# Reinforce memories when they're retrieved and used
+result = om.query("important project details", k=5)
+
+for match in result["matches"]:
+    # Reinforce the memory that was useful
+    om.reinforce(match["id"], boost=0.05)
+```
+
+### Spaced Repetition Pattern
 
 ```python
 # Implement spaced repetition
-def schedule_review(memory):
-    om.reinforce_memory(
-        memory_id=memory.id,
-        strength_boost=0.25,
-        metadata={
-            "review_count": memory.review_count + 1,
-            "next_review": datetime.now() + timedelta(days=7)
-        }
+def schedule_review(memory_id):
+    om.reinforce(
+        memory_id=memory_id,
+        boost=0.2
     )
 ```
 

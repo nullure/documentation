@@ -11,14 +11,14 @@ Get OpenMemory running in just a few minutes.
 
 - **Node.js 18+** and npm/yarn
 - **Python 3.9+** (for SDK)
-- An API key for embedding provider (OpenAI, Gemini, or Voyage AI)
+- An API key for embedding provider (OpenAI or Gemini)
 
 ## Installation
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/nullure/openmemory.git
+git clone https://github.com/caviraoss/openmemory.git
 cd openmemory
 ```
 
@@ -52,12 +52,14 @@ DB_PATH=./data/openmemory.db
 ```
 
 **Gemini Example:**
+
 ```env
 EMBED_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_key_here
 ```
 
 **Voyage AI Example:**
+
 ```env
 EMBED_PROVIDER=voyage
 VOYAGE_API_KEY=your_voyage_key_here
@@ -89,6 +91,7 @@ curl -X POST http://localhost:3000/memory/add \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -109,6 +112,7 @@ curl -X POST http://localhost:3000/memory/query \
 ```
 
 **Response:**
+
 ```json
 {
   "results": [
@@ -134,33 +138,51 @@ curl -X POST http://localhost:3000/memory/query \
 ### Install SDK
 
 ```bash
-cd sdk-py
-pip install -e .
+pip install openmemory-py
 ```
 
 ### Use the SDK
 
 ```python
-from openmemory import OpenMemoryClient
+from openmemory import OpenMemory
 
 # Initialize client
-client = OpenMemoryClient(base_url="http://localhost:3000")
+om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
 
 # Add memory
-result = client.add_memory(
+result = om.add(
     content="User loves hiking and outdoor activities",
-    metadata={"category": "hobbies"}
+    tags=["hobbies", "outdoor"],
+    salience=0.8
 )
-print(f"Memory ID: {result['memoryId']}")
+print(f"Memory ID: {result['id']}")
+print(f"Sector: {result['primary_sector']}")
 
 # Query memories
-results = client.query(
+result = om.query(
     query="What does the user enjoy?",
-    top_k=5
+    k=5
 )
 
-for memory in results['results']:
-    print(f"Score: {memory['score']:.2f} - {memory['content']}")
+for match in result['matches']:
+    print(f"Score: {match['score']:.2f} - {match['content']}")
+    print(f"Sector: {match['primary_sector']}")
+```
+
+### Brain Sectors
+
+OpenMemory automatically routes memories to brain sectors:
+
+```python
+# Query specific sectors
+episodic = om.query_sector("what happened yesterday", "episodic")
+semantic = om.query_sector("user preferences", "semantic")
+procedural = om.query_sector("user habits", "procedural")
+emotional = om.query_sector("frustrations", "emotional")
+
+# Get all sectors information
+sectors = om.get_sectors()
+print(sectors)
 ```
 
 ## Multimodal Ingestion
@@ -185,6 +207,7 @@ curl -X POST http://localhost:3000/memory/ingest/url \
 ```
 
 For documents over 8000 tokens, OpenMemory automatically creates a **root-child structure**:
+
 - Root memory contains a summary
 - Child memories contain sections
 - Waypoints link them together
@@ -194,17 +217,25 @@ For documents over 8000 tokens, OpenMemory automatically creates a **root-child 
 Boost important memories to prevent decay:
 
 ```bash
-curl -X POST http://localhost:3000/memory/reinforce \
+curl -X POST http://localhost:8080/memory/reinforce \
   -H "Content-Type: application/json" \
   -d '{
-    "memoryId": "mem_abc123",
-    "strength": 1.0
+    "id": "mem_abc123",
+    "boost": 0.2
   }'
+```
+
+Or with Python:
+
+```python
+# Reinforce a memory
+om.reinforce(memory_id="mem_abc123", boost=0.2)
 ```
 
 ## Next Steps
 
-- **[Core Concepts](/docs/concepts/sectors)**: Understand multi-sector embeddings
+- **[Core Concepts](/docs/concepts/sectors)**: Understand brain-inspired sectors
 - **[API Reference](/docs/api/add-memory)**: Explore all endpoints
-- **[Embedding Modes](/docs/advanced/embedding-modes)**: Optimize performance with Simple vs Advanced modes
-- **[Waypoints](/docs/concepts/waypoints)**: Learn about memory graph connections
+- **[HMD v2 Specification](/docs/concepts/hmd-v2)**: Learn about multi-sector embeddings
+- **[Decay Algorithm](/docs/concepts/decay)**: Understand memory decay mechanics
+- **[Embedding Modes](/docs/advanced/embedding-modes)**: Optimize with Simple vs Advanced modes

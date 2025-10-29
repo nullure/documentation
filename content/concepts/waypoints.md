@@ -41,12 +41,12 @@ Memory A ────waypoint───→ Memory B
 
 ```typescript
 type EdgeType =
-  | 'semantic' // Similar meaning
-  | 'temporal' // Time-based sequence
-  | 'causal' // Cause-effect relationship
-  | 'reference' // Direct citation
-  | 'elaboration' // Expands on concept
-  | 'contradiction'; // Conflicting information
+  | "semantic" // Similar meaning
+  | "temporal" // Time-based sequence
+  | "causal" // Cause-effect relationship
+  | "reference" // Direct citation
+  | "elaboration" // Expands on concept
+  | "contradiction"; // Conflicting information
 ```
 
 ## How Waypoints Work
@@ -58,31 +58,30 @@ When you add memories, OpenMemory automatically creates waypoints:
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory()
+om = OpenMemory(base_url="http://localhost:8080")
 
 # Add related memories
-mem1 = om.add_memory("Python supports multiple inheritance")
-mem2 = om.add_memory("Multiple inheritance can lead to the diamond problem")
-mem3 = om.add_memory("Python uses C3 linearization to resolve MRO")
+mem1 = om.add("Python supports multiple inheritance")
+mem2 = om.add("Multiple inheritance can lead to the diamond problem")
+mem3 = om.add("Python uses C3 linearization to resolve MRO")
 
-# Waypoints automatically created:
-# mem1 ←→ mem2 (semantic similarity)
-# mem2 ←→ mem3 (elaboration relationship)
+# Memories are automatically connected through semantic similarity
+# The system creates waypoints between related content
 ```
 
-### Manual Waypoint Creation
+### Querying Related Memories
 
-Create explicit connections:
+Navigate through connections:
 
 ```python
-# Link two memories
-om.create_waypoint(
-    source_id=mem1,
-    target_id=mem2,
-    relationship='causal',
-    strength=0.9,
-    metadata={'note': 'Design pattern consequence'}
-)
+# Query returns related memories through waypoints
+result = om.query("Python inheritance", k=10)
+
+# Each match includes path information showing connections
+for match in result["matches"]:
+    print(f"Content: {match['content']}")
+    print(f"Path: {match['path']}")
+    print(f"Sectors: {match['sectors']}")
 ```
 
 ## Multi-Hop Retrieval

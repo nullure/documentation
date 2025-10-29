@@ -72,17 +72,17 @@ t = ln(0.5) / ln(decay_rate)
 
 ```python
 # User sets dark mode preference
-preference = om.add_memory(
+preference = om.add(
     content="User prefers dark mode interface",
-    decay_rate=0.97,  # Retain for ~23 days
-    initial_strength=0.9
+    salience=0.9,  # High importance
+    decay_lambda=0.05  # Slow decay (semantic memory)
 )
 
-# Track strength over time
-day_1 = 0.9 * (0.97 ** 1) = 0.873
-day_7 = 0.9 * (0.97 ** 7) = 0.742
-day_14 = 0.9 * (0.97 ** 14) = 0.630
-day_30 = 0.9 * (0.97 ** 30) = 0.369
+# Track salience over time
+# day_1 = 0.9 * exp(-0.05 * 1) = 0.856
+# day_7 = 0.9 * exp(-0.05 * 7) = 0.632
+# day_14 = 0.9 * exp(-0.05 * 14) = 0.444
+# day_30 = 0.9 * exp(-0.05 * 30) = 0.201
 ```
 
 After 30 days without access, the preference is weakening but still retrievable.
@@ -91,17 +91,17 @@ After 30 days without access, the preference is weakening but still retrievable.
 
 ```python
 # User studies Python decorators
-memory = om.add_memory(
+memory = om.add(
     content="@property decorator creates managed attributes",
-    decay_rate=0.95,  # Standard learning material
-    initial_strength=0.8
+    salience=0.8,
+    decay_lambda=0.1  # Moderate decay
 )
 
-# With regular review (every 5 days)
-# Day 0: strength = 0.8
-# Day 5: strength = 0.8 * 0.95^5 = 0.622 → REVIEWED → reinforced to 0.8
-# Day 10: strength = 0.8 * 0.95^5 = 0.622 → REVIEWED → reinforced to 0.8
-# Day 15: strength = 0.8 * 0.95^5 = 0.622 → REVIEWED → reinforced to 0.8
+# With regular reinforcement (every 5 days)
+# Day 0: salience = 0.8
+# Day 5: query and reinforce → salience boosted to 0.9
+# Day 10: query and reinforce → salience boosted to 0.95
+# Day 15: query and reinforce → salience maintained
 # Result: Maintained through spaced repetition
 ```
 
@@ -109,19 +109,19 @@ memory = om.add_memory(
 
 ```python
 # Temporary conversation context
-context = om.add_memory(
+context = om.add(
     content="User is debugging authentication flow",
-    decay_rate=0.90,  # Fast decay
-    initial_strength=0.7
+    salience=0.6,  # Medium importance
+    decay_lambda=0.2,  # Fast decay (episodic memory)
+    metadata={"sector": "episodic"}
 )
 
-# Strength over hours
-hour_0 = 0.7
-hour_6 = 0.7 * (0.90 ** 0.25) = 0.682  # (6 hours = 0.25 days)
-hour_12 = 0.7 * (0.90 ** 0.5) = 0.664
-hour_24 = 0.7 * (0.90 ** 1) = 0.630
-day_3 = 0.7 * (0.90 ** 3) = 0.510
-day_7 = 0.7 * (0.90 ** 7) = 0.338
+# Strength over time
+# hour_6 = 0.6 * exp(-0.2 * 0.25) ≈ 0.571
+# hour_12 = 0.6 * exp(-0.2 * 0.5) ≈ 0.543
+# day_1 = 0.6 * exp(-0.2 * 1) ≈ 0.491
+# day_3 = 0.6 * exp(-0.2 * 3) ≈ 0.329
+# day_7 = 0.6 * exp(-0.2 * 7) ≈ 0.151
 ```
 
 Context quickly fades when not accessed.
