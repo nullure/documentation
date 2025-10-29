@@ -34,6 +34,8 @@ const navigation: NavItem[] = [
         children: [
             { title: 'Add Memory', href: '/docs/api/add-memory' },
             { title: 'Query Memory', href: '/docs/api/query' },
+            { title: 'Update Memory', href: '/docs/api/update-memory' },
+            { title: 'Delete Memory', href: '/docs/api/delete-memory' },
             { title: 'Multimodal Ingestion', href: '/docs/api/ingestion' },
             { title: 'Reinforcement', href: '/docs/api/reinforce' },
         ]
