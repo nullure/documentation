@@ -178,7 +178,7 @@ Status Code: `500`
 
 When you delete a memory, the following data is permanently removed:
 
-### 1. Memory Record
+### Memory Record
 
 - Content
 - Tags
@@ -188,19 +188,19 @@ When you delete a memory, the following data is permanently removed:
 - Decay parameters
 - Version information
 
-### 2. Vector Embeddings
+### Vector Embeddings
 
 - All vector representations across sectors
 - Multi-sector embeddings
 - Embedding metadata
 
-### 3. Full-Text Search Index
+### Full-Text Search Index
 
 - FTS entries for content search
 - Indexed tokens
 - Search rankings
 
-### 4. Waypoint Connections
+### Waypoint Connections
 
 - All waypoints **from** this memory to others
 - All waypoints **to** this memory from others
@@ -240,7 +240,7 @@ Memory A     (orphaned)     Memory C
 
 ## Use Cases
 
-### 1. Clean Up Outdated Information
+### Clean Up Outdated Information
 
 ```python
 # Delete deprecated or incorrect memories
@@ -252,7 +252,7 @@ for memory in memories:
         print(f"Deleted outdated: {memory.content[:50]}")
 ```
 
-### 2. Privacy Compliance
+### Privacy Compliance
 
 ```python
 # Delete user data upon request (GDPR, etc.)
@@ -267,7 +267,7 @@ for memory in memories:
 print(f"Deleted {len(memories)} memories for user {user_id}")
 ```
 
-### 3. Prune Low-Quality Memories
+### Prune Low-Quality Memories
 
 ```python
 # Remove weak or decayed memories
@@ -284,7 +284,7 @@ for memory in memories:
 print(f"Pruned {deleted} weak memories")
 ```
 
-### 4. Clear Temporary Context
+### Clear Temporary Context
 
 ```python
 # Delete session-specific memories after session ends
@@ -300,7 +300,7 @@ for memory in memories:
 print(f"Cleaned up session {session_id}")
 ```
 
-### 5. Remove Test Data
+### Remove Test Data
 
 ```python
 # Clean up after testing
@@ -316,7 +316,7 @@ print("Test data removed")
 
 ## Best Practices
 
-### 1. Verify Before Deleting
+### Verify Before Deleting
 
 ```python
 def safe_delete(memory_id):
@@ -339,7 +339,7 @@ def safe_delete(memory_id):
         return False
 ```
 
-### 2. Archive Important Data
+### Archive Important Data
 
 ```python
 # Archive to external storage before deletion
@@ -363,7 +363,7 @@ def archive_and_delete(memory_id):
     om.delete_memory(memory_id)
 ```
 
-### 3. Batch Deletions Carefully
+### Batch Deletions Carefully
 
 ```python
 # Rate limit batch deletions
@@ -386,7 +386,7 @@ def batch_delete(memory_ids, delay=0.1):
     return deleted, failed
 ```
 
-### 4. Log Deletions
+### Log Deletions
 
 ```python
 # Keep audit trail
@@ -409,9 +409,7 @@ def logged_delete(memory_id, reason=""):
     return om.delete_memory(memory_id)
 ```
 
-### 5. Consider Alternatives
-
-Before deleting, consider if another approach is better:
+### Consider AlternativesBefore deleting, consider if another approach is better:
 
 ```python
 # Instead of deleting, you might:

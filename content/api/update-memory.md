@@ -299,7 +299,7 @@ om.update_memory(
 
 ## Best Practices
 
-### 1. Preserve Important Data
+### Preserve Important Data
 
 ```python
 # Get existing memory first
@@ -313,7 +313,7 @@ om.update_memory(
 )
 ```
 
-### 2. Track Changes
+### Track Changes
 
 ```python
 # Add update metadata
@@ -329,7 +329,7 @@ om.update_memory(
 )
 ```
 
-### 3. Batch Updates
+### Batch Updates
 
 ```python
 # Update multiple memories efficiently
@@ -342,7 +342,7 @@ for mem_id in memory_ids:
     )
 ```
 
-### 4. Validate Before Updating
+### Validate Before Updating
 
 ```python
 def safe_update(memory_id, **updates):
@@ -361,7 +361,7 @@ def safe_update(memory_id, **updates):
         return None
 ```
 
-### 5. Semantic Consistency
+### Semantic Consistency
 
 ```python
 # When updating content, ensure semantic consistency
