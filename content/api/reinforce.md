@@ -5,12 +5,18 @@ description: Strengthen memories through explicit reinforcement signals
 
 # Reinforcement
 
-Strengthen memories through explicit reinforcement signals.
+Strengthen memories through explicit reinforcement signals to prevent decay.
 
 ## Endpoint
 
 ```
-POST /api/reinforce
+POST /memory/reinforce
+```
+
+## Authentication
+
+```bash
+Authorization: Bearer your_api_key_here
 ```
 
 ## Request
@@ -22,6 +28,21 @@ interface ReinforceRequest {
 }
 ```
 
+### Parameters
+
+| Parameter | Type   | Required | Default | Description              |
+| --------- | ------ | -------- | ------- | ------------------------ |
+| `id`      | string | Yes      | -       | Memory ID to reinforce   |
+| `boost`   | number | No       | `0.2`   | Salience increase amount |
+
+## Response
+
+```typescript
+interface ReinforceResponse {
+  ok: boolean;
+}
+```
+
 ## Examples
 
 ### Basic Reinforcement
@@ -29,7 +50,7 @@ interface ReinforceRequest {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
+om = OpenMemory(api_key="your_api_key", base_url="http://localhost:8080")
 
 # Strengthen a memory
 result = om.reinforce(
@@ -61,15 +82,30 @@ for match in result["matches"]:
     om.reinforce(match["id"], boost=0.05)
 ```
 
-### Spaced Repetition Pattern
+### TypeScript/Node.js
 
-```python
-# Implement spaced repetition
-def schedule_review(memory_id):
-    om.reinforce(
-        memory_id=memory_id,
-        boost=0.2
-    )
+```typescript
+import OpenMemory from 'openmemory-js';
+
+const om = new OpenMemory({
+  baseUrl: 'http://localhost:8080',
+  apiKey: 'your_api_key',
+});
+
+// Reinforce a memory
+await om.reinforce('mem_abc123', 0.2);
 ```
 
-See [HMD v2 Specification](/docs/concepts/hmd-v2) for decay mechanics and [Decay Algorithm](/docs/concepts/decay) for reinforcement strategies.
+### cURL
+
+```bash
+curl -X POST http://localhost:8080/memory/reinforce \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
+  -d '{
+    "id": "mem_abc123",
+    "boost": 0.2
+  }'
+```
+
+See [Decay Algorithm](/docs/concepts/decay) for how reinforcement affects memory persistence.

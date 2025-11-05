@@ -1,16 +1,22 @@
 ---
 title: Query Memory
-description: Search and retrieve memories using semantic search with multi-hop navigation
+description: Search and retrieve memories using semantic search with brain-sector routing
 ---
 
 # Query Memory
 
-Search and retrieve memories using semantic search with multi-hop navigation.
+Search and retrieve memories using semantic search with automatic brain-sector routing.
 
 ## Endpoint
 
 ```
-POST /api/query
+POST /memory/query
+```
+
+## Authentication
+
+```bash
+Authorization: Bearer your_api_key_here
 ```
 
 ## Request Body
@@ -22,18 +28,20 @@ interface QueryRequest {
   filters?: {
     sector?: string;
     min_score?: number;
+    min_salience?: number;
     tags?: string[];
+    user_id?: string;
   };
 }
 ```
 
 ### Parameters
 
-| Parameter | Type   | Required | Default | Description                          |
-| --------- | ------ | -------- | ------- | ------------------------------------ |
-| `query`   | string | Yes      | -       | Search query text                    |
-| `k`       | number | No       | `8`     | Number of results to return          |
-| `filters` | object | No       | `{}`    | Optional filters (sector, min_score) |
+| Parameter | Type   | Required | Default | Description                                   |
+| --------- | ------ | -------- | ------- | --------------------------------------------- |
+| `query`   | string | Yes      | -       | Search query text                             |
+| `k`       | number | No       | `8`     | Number of results to return                   |
+| `filters` | object | No       | `{}`    | Optional filters (sector, min_score, user_id) |
 
 ## Response
 
@@ -51,7 +59,7 @@ interface MemoryMatch {
   primary_sector: string;
   path: string[];
   salience: number;
-  last_seen_at: string;
+  last_seen_at: number;
 }
 ```
 
@@ -62,7 +70,7 @@ interface MemoryMatch {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
+om = OpenMemory(api_key="your_api_key", base_url="http://localhost:8080")
 
 # Simple search
 result = om.query(
@@ -110,16 +118,18 @@ print(f"Found {len(result['matches'])} high-confidence matches")
 ### TypeScript Example
 
 ```typescript
+import OpenMemory from 'openmemory-js';
+
 const om = new OpenMemory({
-  baseUrl: "http://localhost:8080",
-  apiKey: "your_api_key",
+  baseUrl: 'http://localhost:8080',
+  apiKey: 'your_api_key',
 });
 
 const result = await om.query({
-  query: "React hooks best practices",
+  query: 'React hooks best practices',
   k: 10,
   filters: {
-    sector: "semantic",
+    sector: 'semantic',
   },
 });
 

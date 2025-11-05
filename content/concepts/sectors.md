@@ -1,394 +1,339 @@
 ---
 title: Memory Sectors
-description: Organize memories into hierarchical, contextual groups like your brain naturally does
+description: Brain-inspired memory organization using 5 cognitive sectors
 ---
 
 # Memory Sectors
 
-Memory Sectors are OpenMemory's way of organizing memories into hierarchical, contextual groups - similar to how your brain organizes memories into categories and contexts.
+OpenMemory organizes memories using **5 brain-inspired sectors** that mirror human cognitive systems. Each sector has specialized characteristics for decay rate, weight, and pattern recognition.
 
-## What are Memory Sectors?
+## Overview
 
-A **Memory Sector** is a logical container that groups related memories together. Think of it as a folder, but with semantic relationships and automatic organization based on content similarity and access patterns.
+Based on cognitive science research, OpenMemory uses a **Hierarchical Semantic Graph (HSG)** architecture with 5 distinct memory sectors:
 
-### Key Characteristics
+1. **Episodic** - Events and experiences
+2. **Semantic** - Facts and knowledge
+3. **Procedural** - Habits and workflows
+4. **Emotional** - Feelings and sentiment
+5. **Reflective** - Meta-thoughts and insights
 
-- **Hierarchical**: Sectors can contain sub-sectors
-- **Semantic**: Automatically grouped by content similarity
-- **Dynamic**: Grow and split as needed
-- **Connected**: Cross-sector links via waypoints
+Each sector automatically classifies memories based on content patterns and manages decay rates appropriate to the memory type.
 
-## Architecture
+## The 5 Brain Sectors
 
+### Episodic - Event Memories
+
+**What**: Temporal experiences, events, and moments in time  
+**Decay Rate**: λ = 0.015 (medium-fast decay)  
+**Weight**: 1.2 (boosted importance)
+
+**Pattern Recognition**:
+
+- Time references: "today", "yesterday", "last week"
+- Personal experiences: "I did", "I went", "I saw"
+- Timestamps: "at 3:00pm", "on Monday", "in 2024"
+- Event words: "happened", "occurred", "experience"
+
+**Examples**:
+
+```python
+# Automatically classified as episodic
+om.add("Met with the client at 3pm yesterday to discuss the Q4 roadmap")
+om.add("That time we debugged the memory leak for 6 hours straight")
+om.add("Deployed version 2.0 to production on Friday at 5pm")
 ```
-Root Sector
-├── Work
-│   ├── Project A
-│   │   ├── Technical Docs
-│   │   └── Meeting Notes
-│   └── Project B
-├── Personal
-│   ├── Health
-│   └── Finance
-└── Learning
-    ├── AI/ML
-    └── Programming
+
+**Best For**:
+
+- Timeline tracking
+- Session history
+- User journeys
+- Event logs
+
+---
+
+### Semantic - Facts & Knowledge
+
+**What**: Factual information, definitions, concepts, and timeless knowledge  
+**Decay Rate**: λ = 0.005 (very slow decay)  
+**Weight**: 1.0 (standard importance)
+
+**Pattern Recognition**:
+
+- Definitions: "define", "meaning", "concept", "theory"
+- Questions: "what is", "how does", "why do"
+- Knowledge: "principle", "rule", "law", "algorithm"
+- Information: "knowledge", "data", "research", "study"
+
+**Examples**:
+
+```python
+# Automatically classified as semantic
+om.add("Python uses dynamic typing and duck typing principles")
+om.add("REST APIs follow the principles of stateless client-server communication")
+om.add("The Big O notation O(n log n) represents logarithmic complexity")
 ```
 
-## How Sectors Work
+**Best For**:
 
-### Automatic Sector Creation
+- Knowledge bases
+- Documentation
+- Facts and definitions
+- Core concepts
 
-When you add memories, OpenMemory automatically:
+---
 
-1. **Analyzes content** using embeddings
-2. **Finds similar memories** in existing sectors
-3. **Assigns to appropriate sector** or creates new one
-4. **Updates sector metadata** with new topics
+### Procedural - Habits & Workflows
+
+**What**: Step-by-step processes, workflows, habits, and procedures  
+**Decay Rate**: λ = 0.008 (slow decay)  
+**Weight**: 1.1 (slightly boosted)
+
+**Pattern Recognition**:
+
+- Instructions: "how to", "step by step", "procedure"
+- Sequence: "first", "then", "next", "finally"
+- Actions: "install", "configure", "run", "execute"
+- Guides: "tutorial", "instructions", "manual"
+- UI actions: "click", "press", "type", "enter"
+
+**Examples**:
+
+```python
+# Automatically classified as procedural
+om.add("To deploy: first run npm build, then docker build, finally kubectl apply")
+om.add("User always runs git pull before starting work each morning")
+om.add("Setup process: install dependencies, configure env vars, seed database")
+```
+
+**Best For**:
+
+- Tutorials and guides
+- Workflow tracking
+- Habit detection
+- SOPs (Standard Operating Procedures)
+
+---
+
+### Emotional - Feelings & Sentiment
+
+**What**: Emotional states, feelings, reactions, and sentiment  
+**Decay Rate**: λ = 0.020 (fast decay)  
+**Weight**: 1.3 (highly boosted - emotions matter!)
+
+**Pattern Recognition**:
+
+- Feelings: "feel", "feeling", "emotion", "mood"
+- Emotions: "happy", "sad", "angry", "excited", "worried"
+- Preferences: "love", "hate", "like", "enjoy", "fear"
+- Intensifiers: "amazing", "terrible", "wonderful", "awful"
+- Emphasis: Multiple exclamation marks!!! or ???
+
+**Examples**:
+
+```python
+# Automatically classified as emotional
+om.add("User expressed frustration with the slow build times!!!")
+om.add("Really excited about the new feature launch tomorrow!")
+om.add("Feeling overwhelmed by the number of open issues")
+```
+
+**Best For**:
+
+- Sentiment analysis
+- User satisfaction tracking
+- Emotional context
+- Feedback analysis
+
+---
+
+### Reflective - Meta-Thoughts & Insights
+
+**What**: Self-reflection, insights, conclusions, and meta-information  
+**Decay Rate**: λ = 0.001 (extremely slow decay - learnings persist)  
+**Weight**: 0.8 (lower weight - background context)
+
+**Pattern Recognition**:
+
+- Reflection: "think", "thought", "reflect", "reflection"
+- Insights: "realize", "understand", "insight", "conclusion"
+- Learning: "learn", "discovered", "recognize", "pattern"
+- Meta: "observe", "notice", "seems", "appears"
+
+**Examples**:
+
+```python
+# Automatically classified as reflective
+om.add("I've noticed that users from enterprise prefer detailed documentation")
+om.add("Pattern observed: bugs increase after Friday deployments")
+om.add("Realized that caching at the API layer reduces DB load by 40%")
+```
+
+**Best For**:
+
+- Learning and insights
+- Pattern detection
+- System observations
+- Audit trails
+
+## Automatic Sector Classification
+
+When you add a memory, OpenMemory automatically analyzes the content and classifies it into the most appropriate sector based on pattern matching and semantic analysis.
 
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(base_url="http://localhost:8080")
+om = OpenMemory(
+    api_key="your_api_key",
+    base_url="http://localhost:8080"
+)
 
-# Memory is automatically assigned to appropriate brain sector
+# Automatically classified
 result = om.add(
-    content="Python decorators are powerful for metaprogramming"
+    content="I deployed the new feature to production yesterday at 5pm"
 )
 
-print(f"Assigned to sector: {result['primary_sector']}")
+print(f"Primary sector: {result['primary_sector']}")  # episodic
+print(f"All sectors: {result['sectors']}")  # may include multiple
 ```
 
-### Manual Sector Assignment
+The classification system:
 
-You can explicitly assign memories to specific brain sectors:
+1. Runs pattern matching against each sector's regex patterns
+2. Calculates confidence scores for each sector
+3. Assigns primary sector (highest confidence)
+4. May assign additional sectors if confidence is high enough
+
+## Querying by Sector
+
+You can query specific sectors using the SDK:
 
 ```python
-# Add to semantic sector (facts & knowledge)
-om.add(
-    content="List comprehensions are faster than loops in Python",
-    metadata={"sector": "semantic"}
-)
+# Query memories from semantic sector only
+semantic_memories = om.get_by_sector("semantic", limit=50)
 
-# Add to episodic sector (events & experiences)
-om.add(
-    content="Deployed version 2.0 to production at 3pm today",
-    metadata={"sector": "episodic"}
-)
+for memory in semantic_memories["items"]:
+    print(f"- {memory['content']}")
 
-# Query within a specific sector
-result = om.query_sector(
-    query="performance tips",
-    sector="semantic"
-)
+# Query all sectors (default)
+all_memories = om.get_all(limit=100)
 ```
 
-## Brain Sectors (HMD v2)
+## Sector Statistics
 
-OpenMemory uses 5 brain-inspired sectors based on the HMD v2 specification:
-
-### 1. **Episodic** - Event Memories
-
-- Temporal experiences and events
-- What happened, when it happened
-- Example: "Met with client at 3pm yesterday"
-
-### 2. **Semantic** - Facts & Knowledge
-
-- Factual information, preferences, concepts
-- Timeless knowledge
-- Example: "Python uses dynamic typing"
-
-### 3. **Procedural** - Habits & Patterns
-
-- Behavioral patterns, triggers, workflows
-- How things are done
-- Example: "User always commits before switching branches"
-
-### 4. **Emotional** - Sentiment States
-
-- Emotional context and sentiment
-- Feelings and reactions
-- Example: "User expressed frustration with build times"
-
-### 5. **Reflective** - Meta-Memory & Logs
-
-- System logs, audit trails, meta-information
-- Memory about memories
-- Example: "Recalculated sector weights at midnight"
-
-## Sector Properties
-
-### Decay Rates
-
-Each sector has its own decay characteristics:
+Get statistics about memory distribution across sectors:
 
 ```python
-# Get sector information
-sectors_info = om.get_sectors()
+# Get sector breakdown
+stats = om.get_stats()
 
-print(sectors_info)
-# {
-#   "episodic": {"decay_lambda": 0.15, "count": 230},
-#   "semantic": {"decay_lambda": 0.05, "count": 450},
-#   "procedural": {"decay_lambda": 0.08, "count": 120},
-#   "emotional": {"decay_lambda": 0.20, "count": 89},
-#   "reflective": {"decay_lambda": 0.25, "count": 340}
-# }
+print("Memory distribution:")
+for sector, data in stats['sectors'].items():
+    print(f"{sector}: {data['count']} memories (λ={data['decay_lambda']})")
+
+# Example output:
+# episodic: 230 memories (λ=0.015)
+# semantic: 450 memories (λ=0.005)
+# procedural: 120 memories (λ=0.008)
+# emotional: 89 memories (λ=0.020)
+# reflective: 34 memories (λ=0.001)
 ```
 
-## Sector Operations
+## Understanding Sector Weights
 
-### Query by Sector
+Each sector has a weight that influences query relevance:
 
-```python
-# Query specific brain sectors
-episodic_memories = om.query_sector("what happened yesterday", "episodic")
-semantic_facts = om.query_sector("Python features", "semantic")
-procedures = om.query_sector("user workflow", "procedural")
-emotions = om.query_sector("frustrations", "emotional")
-logs = om.query_sector("system events", "reflective")
-```
+| Sector     | Weight | Effect                                       |
+| ---------- | ------ | -------------------------------------------- |
+| Emotional  | 1.3    | Boosted - emotions carry more weight         |
+| Episodic   | 1.2    | Slightly boosted - recent events matter      |
+| Procedural | 1.1    | Slightly boosted - workflows are important   |
+| Semantic   | 1.0    | Standard - balanced relevance                |
+| Reflective | 0.8    | Reduced - background context, less prominent |
 
-### List All Memories by Sector
+These weights affect query scoring and memory retrieval.
 
-```python
-# Get all memories from a sector
-result = om.get_by_sector("semantic", limit=100)
+## HSG Architecture
 
-for memory in result["items"]:
-    print(memory["content"])
-)
+OpenMemory uses a **Hierarchical Semantic Graph (HSG)** that:
 
-# Merge sectors
-om.merge_sectors(
-    source="Old Project",
-    target="Archive"
-)
-```
+1. **Organizes memories by sector** for efficient retrieval
+2. **Maintains waypoints** (connections between related memories)
+3. **Manages decay** differently per sector
+4. **Optimizes queries** by searching relevant sectors first
 
-### Delete Sectors
+The HSG architecture enables:
 
-```python
-# Soft delete (marks as archived)
-om.archive_sector("Old Project")
-
-# Hard delete (removes all memories)
-om.delete_sector("Temporary", hard=True)
-```
-
-## Sector Strategies
-
-### By Domain
-
-Organize by knowledge domains:
-
-```
-Knowledge Base
-├── Technical
-│   ├── Backend
-│   ├── Frontend
-│   └── DevOps
-├── Business
-│   ├── Marketing
-│   └── Sales
-└── Operations
-```
-
-### By Time
-
-Organize chronologically:
-
-```
-Timeline
-├── 2025
-│   ├── Q1
-│   └── Q2
-└── 2024
-    └── Q4
-```
-
-### By Project
-
-Organize by projects:
-
-```
-Projects
-├── Active
-│   ├── Website Redesign
-│   └── API v2
-├── Maintenance
-└── Archived
-```
-
-### Hybrid Approach
-
-Combine multiple strategies:
-
-```
-Root
-├── Work
-│   ├── 2025
-│   │   └── Project A
-│   └── Archive
-└── Personal
-    └── Health
-        └── 2025
-```
-
-## Sector Linking
-
-Sectors can be linked through waypoints, enabling cross-sector navigation:
-
-```python
-# Create link between sectors
-om.link_sectors(
-    source="Technical/API",
-    target="Documentation/API",
-    relationship="documented_by"
-)
-
-# Query with cross-sector navigation
-results = om.query(
-    query="authentication flow",
-    start_sector="Technical/API",
-    allow_cross_sector=True,
-    max_hops=3
-)
-```
-
-## Performance Considerations
-
-### Sector Size
-
-- **Optimal size**: 100-10,000 memories per sector
-- **Too small**: Overhead from sector management
-- **Too large**: Slower queries, less semantic coherence
-
-### Sector Depth
-
-- **Recommended depth**: 3-5 levels
-- **Deeper hierarchies**: Slower navigation
-- **Flatter hierarchies**: Less organization
-
-### Auto-splitting
-
-OpenMemory automatically splits large sectors:
-
-```python
-# Configure auto-split threshold
-om.configure_sectors(
-    max_memories_per_sector=5000,
-    auto_split=True,
-    split_strategy="semantic"  # or "balanced", "temporal"
-)
-```
+- Fast semantic search within sectors
+- Cross-sector waypoint navigation
+- Sector-specific decay management
+- Efficient memory consolidation
 
 ## Best Practices
 
-### 1. Start Simple
+### Trust Automatic Classification
 
-Begin with broad categories:
-
-```python
-om.create_sector("Work")
-om.create_sector("Personal")
-om.create_sector("Learning")
-```
-
-### 2. Let It Grow Organically
-
-Allow auto-sector assignment to work:
+The pattern-based classification is highly accurate. Let OpenMemory handle sector assignment:
 
 ```python
-om.add_memory(content="...", auto_sector=True)
-```
+# Good - automatic classification
+om.add("User prefers dark mode UI")  # → semantic
 
-### 3. Review and Reorganize
-
-Periodically review sector structure:
-
-```python
-# Get underutilized sectors
-unused = om.list_sectors(min_memories=10, max_last_access_days=90)
-
-# Merge or archive them
-for sector in unused:
-    om.archive_sector(sector.id)
-```
-
-### 4. Use Metadata
-
-Tag sectors for better organization:
-
-```python
-om.update_sector(
-    sector_id="project_a",
-    metadata={
-        "status": "active",
-        "team": "engineering",
-        "priority": "high"
-    }
+# Unnecessary - manual override rarely needed
+om.add(
+    "User prefers dark mode UI",
+    metadata={"force_sector": "semantic"}
 )
 ```
 
-### 5. Monitor Performance
+### Use Appropriate Content
 
-Track sector health:
+Write memory content that's clear about its nature:
 
 ```python
-# Get slow sectors
-slow_sectors = om.analyze_sectors(metric="query_time")
+# Clear episodic markers
+om.add("Deployed v2.0 on Friday January 15th at 3pm")
 
-# Optimize large sectors
-for sector in slow_sectors:
-    if sector.memory_count > 10000:
-        om.split_sector(sector.id)
+# Clear semantic markers
+om.add("The formula for complexity is O(n log n)")
+
+# Clear procedural markers
+om.add("To deploy: first build, then test, finally push to prod")
 ```
 
-## Advanced Features
+### Monitor Sector Distribution
 
-### Sector Templates
-
-Create reusable sector structures:
+Track how memories are distributed:
 
 ```python
-# Define template
-template = {
-    "name": "Project Template",
-    "children": ["Docs", "Code", "Meetings", "Research"]
-}
+stats = om.get_stats()
 
-# Apply template
-om.create_from_template("New Project", template)
+# Check if distribution makes sense for your use case
+# Too many episodic? Maybe add more semantic knowledge
+# Too few reflective? Enable auto-reflection
 ```
 
-### Sector Permissions
+### Leverage Sector Decay
 
-Control access to sectors:
-
-```python
-om.set_sector_permissions(
-    sector_id="confidential",
-    read=["user_1", "user_2"],
-    write=["user_1"]
-)
-```
-
-### Sector Export
-
-Export sector contents:
+Different sectors decay at different rates - use this:
 
 ```python
-# Export as JSON
-om.export_sector("Work/Project A", format="json", file="project_a.json")
+# Long-term knowledge → semantic (slow decay)
+om.add("Company policy: All code must be reviewed before merge")
 
-# Export as markdown
-om.export_sector("Learning/AI", format="markdown", file="ai_notes.md")
+# Short-term context → episodic (medium decay)
+om.add("Working on auth bug reported this morning")
+
+# Transient feelings → emotional (fast decay)
+om.add("Frustrated with slow CI pipeline today!")
+
+# Persistent learnings → reflective (very slow decay)
+om.add("Pattern: bugs increase after Friday deployments")
 ```
 
 ## Next Steps
 
-- Learn about [Waypoints & Graph](/docs/concepts/waypoints) for cross-sector navigation
-- Understand [HMD v2 Specification](/docs/concepts/hmd-v2) for decay mechanics
-- Explore [API Reference](/docs/api/add-memory) for sector operations
+- Learn about [Decay Algorithm](/docs/concepts/decay) for sector-specific decay
+- Understand [HSG in HMD v2](/docs/concepts/hmd-v2) architecture details
+- Explore [Waypoints](/docs/concepts/waypoints) for cross-sector connections
+- See [Query API](/docs/api/query) for sector-filtered queries

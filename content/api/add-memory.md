@@ -5,18 +5,18 @@ description: Add new memories to OpenMemory with full control over content, meta
 
 # Add Memory
 
-Add new memories to OpenMemory with full control over content, metadata, and decay parameters.
+Add new memories to OpenMemory with full control over content, metadata, and salience parameters.
 
 ## Endpoint
 
 ```
-POST /api/memory
+POST /memory/add
 ```
 
 ## Authentication
 
 ```bash
-X-API-Key: your_api_key_here
+Authorization: Bearer your_api_key_here
 ```
 
 ## Request Body
@@ -26,33 +26,26 @@ interface AddMemoryRequest {
   content: string;
   tags?: string[];
   metadata?: Record<string, any>;
-  salience?: number;
-  decay_lambda?: number;
+  user_id?: string;
 }
 ```
 
 ### Parameters
 
-| Parameter      | Type     | Required | Default | Description                                    |
-| -------------- | -------- | -------- | ------- | ---------------------------------------------- |
-| `content`      | string   | Yes      | -       | The memory content to store                    |
-| `tags`         | string[] | No       | `[]`    | Tags for categorization                        |
-| `metadata`     | object   | No       | `{}`    | Additional metadata (can include 'sector' key) |
-| `salience`     | number   | No       | `0.5`   | Memory importance/strength (0.0-1.0)           |
-| `decay_lambda` | number   | No       | sector  | Custom decay rate (overrides sector default)   |
+| Parameter  | Type     | Required | Default | Description                      |
+| ---------- | -------- | -------- | ------- | -------------------------------- |
+| `content`  | string   | Yes      | -       | The memory content to store      |
+| `tags`     | string[] | No       | `[]`    | Tags for categorization          |
+| `metadata` | object   | No       | `{}`    | Additional metadata              |
+| `user_id`  | string   | No       | -       | User ID for multi-user isolation |
 
 ## Response
 
 ```typescript
 interface AddMemoryResponse {
   id: string;
-  content: string;
   primary_sector: string;
   sectors: string[];
-  salience: number;
-  decay_lambda: number;
-  created_at: string;
-  version: number;
 }
 ```
 
@@ -137,16 +130,16 @@ print(f"Added {len(results)} memories")
 ### TypeScript/Node.js
 
 ```typescript
-import { OpenMemory } from "@openmemory/sdk";
+import { OpenMemory } from '@openmemory/sdk';
 
-const om = new OpenMemory({ apiKey: "your_api_key" });
+const om = new OpenMemory({ apiKey: 'your_api_key' });
 
 // Add memory
 const result = await om.addMemory({
-  content: "GraphQL provides type-safe API queries",
+  content: 'GraphQL provides type-safe API queries',
   metadata: {
-    category: "web_development",
-    topics: ["graphql", "api", "typescript"],
+    category: 'web_development',
+    topics: ['graphql', 'api', 'typescript'],
   },
   decayRate: 0.96,
   initialStrength: 0.85,

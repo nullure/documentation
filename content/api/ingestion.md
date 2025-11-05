@@ -9,12 +9,12 @@ OpenMemory supports ingesting content from multiple file formats and web URLs wi
 
 ## Supported Formats
 
-| Format | Extension | Library | Features |
-|--------|-----------|---------|----------|
-| **PDF** | `.pdf` | pdf-parse | Text extraction, multi-page support |
-| **Word** | `.docx` | mammoth | Raw text extraction, formatting preserved |
-| **HTML** | `.html` | turndown | HTML to Markdown conversion |
-| **Web URLs** | N/A | node-fetch | Automatic HTML fetching and parsing |
+| Format       | Extension | Library    | Features                                  |
+| ------------ | --------- | ---------- | ----------------------------------------- |
+| **PDF**      | `.pdf`    | pdf-parse  | Text extraction, multi-page support       |
+| **Word**     | `.docx`   | mammoth    | Raw text extraction, formatting preserved |
+| **HTML**     | `.html`   | turndown   | HTML to Markdown conversion               |
+| **Web URLs** | N/A       | node-fetch | Automatic HTML fetching and parsing       |
 
 ## File Upload API
 
@@ -26,56 +26,85 @@ POST /memory/ingest
 
 ### Request
 
-**Content-Type**: `multipart/form-data`
+**Content-Type**: `application/json`
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | File | ✅ | PDF, DOCX, or HTML file |
-| `metadata` | JSON string | ❌ | Custom metadata object |
+| Field          | Type   | Required | Description                                                                                                          |
+| -------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `content_type` | string | ✅       | MIME type: `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `text/html` |
+| `data`         | string | ✅       | Base64-encoded file data or HTML string                                                                              |
+| `metadata`     | object | ❌       | Custom metadata object                                                                                               |
+| `config`       | object | ❌       | Ingestion configuration options                                                                                      |
 
 ### Example: cURL
 
 ```bash
-curl -X POST http://localhost:3000/memory/ingest \
-  -F "file=@research-paper.pdf" \
-  -F "metadata={\"source\":\"research\",\"author\":\"John Doe\"}"
+curl -X POST http://localhost:8080/memory/ingest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
+  -d '{
+    "content_type": "application/pdf",
+    "data": "base64_encoded_pdf_data_here...",
+    "metadata": {"source": "research", "author": "John Doe"}
+  }'
 ```
 
-### Example: Python SDK
+### Example: Python
 
 ```python
-from openmemory import OpenMemoryClient
+import base64
+import requests
 
-client = OpenMemoryClient(base_url="http://localhost:3000")
+# Read and encode file
+with open("research-paper.pdf", "rb") as f:
+    pdf_data = base64.b64encode(f.read()).decode('utf-8')
 
-# Ingest PDF
-result = client.ingest_file(
-    file_path="research-paper.pdf",
-    metadata={"source": "research", "author": "John Doe"}
+# Send to backend
+response = requests.post(
+    "http://localhost:8080/memory/ingest",
+    headers={
+        "Content-Type": "application/json",
+        "Authorization": "Bearer your_api_key"
+    },
+    json={
+        "content_type": "application/pdf",
+        "data": pdf_data,
+        "metadata": {"source": "research", "author": "John Doe"}
+    }
 )
 
+result = response.json()
 print(f"Root Memory ID: {result['rootMemoryId']}")
 print(f"Child Memories: {len(result['childMemoryIds'])}")
 ```
 
-### Example: JavaScript
+### Example: JavaScript/TypeScript
 
 ```javascript
-const formData = new FormData();
-formData.append('file', fileInput.files[0]);
-formData.append('metadata', JSON.stringify({
-  source: 'user_upload',
-  category: 'documentation'
-}));
+// Read file and convert to base64
+const fileBuffer = await fs.readFile('research-paper.pdf');
+const base64Data = fileBuffer.toString('base64');
 
-const response = await fetch('http://localhost:3000/memory/ingest', {
+const response = await fetch('http://localhost:8080/memory/ingest', {
   method: 'POST',
-  body: formData
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer your_api_key',
+  },
+  body: JSON.stringify({
+    content_type: 'application/pdf',
+    data: base64Data,
+    metadata: {
+      source: 'research',
+      author: 'John Doe',
+    },
+  }),
 });
 
 const result = await response.json();
 console.log('Root Memory:', result.rootMemoryId);
 ```
+
+> **Note**: The OpenMemory SDKs (`openmemory-py`, `openmemory-js`) do not include file ingestion methods. Use HTTP requests directly as shown above.
 
 ## URL Ingestion API
 
@@ -89,16 +118,17 @@ POST /memory/ingest/url
 
 **Content-Type**: `application/json`
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `url` | string | ✅ | Web page URL (http/https) |
-| `metadata` | object | ❌ | Custom metadata |
+| Field      | Type   | Required | Description               |
+| ---------- | ------ | -------- | ------------------------- |
+| `url`      | string | ✅       | Web page URL (http/https) |
+| `metadata` | object | ❌       | Custom metadata           |
 
 ### Example: cURL
 
 ```bash
-curl -X POST http://localhost:3000/memory/ingest/url \
+curl -X POST http://localhost:8080/memory/ingest/url \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "url": "https://example.com/blog/ai-advances",
     "metadata": {
@@ -108,14 +138,50 @@ curl -X POST http://localhost:3000/memory/ingest/url \
   }'
 ```
 
-### Example: Python SDK
+### Example: Python
 
 ```python
-result = client.ingest_url(
-    url="https://example.com/blog/ai-advances",
-    metadata={"source": "blog", "category": "ai"}
+import requests
+
+response = requests.post(
+    "http://localhost:8080/memory/ingest/url",
+    headers={
+        "Content-Type": "application/json",
+        "Authorization": "Bearer your_api_key"
+    },
+    json={
+        "url": "https://example.com/blog/ai-advances",
+        "metadata": {"source": "blog", "category": "ai"}
+    }
 )
+
+result = response.json()
+print(f"Ingested from URL: {result['rootMemoryId']}")
 ```
+
+### Example: JavaScript/TypeScript
+
+```javascript
+const response = await fetch('http://localhost:8080/memory/ingest/url', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer your_api_key',
+  },
+  body: JSON.stringify({
+    url: 'https://example.com/blog/ai-advances',
+    metadata: {
+      source: 'blog',
+      category: 'ai',
+    },
+  }),
+});
+
+const result = await response.json();
+console.log('Ingested URL:', result.rootMemoryId);
+```
+
+> **Note**: The OpenMemory SDKs do not include URL ingestion methods. Use HTTP requests directly as shown above.
 
 ## Root-Child Strategy
 
@@ -124,10 +190,12 @@ When ingesting **large documents** (>8000 tokens), OpenMemory automatically crea
 ### How It Works
 
 1. **Token Count Check**: Document is tokenized and counted
-2. **Decision**: 
-  - Small (less than 8000 tokens): Single memory
-  - Large (≥8000 tokens): Root-child structure
-3. **Root Creation**: 
+2. **Decision**:
+
+- Small (less than 8000 tokens): Single memory
+- Large (≥8000 tokens): Root-child structure
+
+3. **Root Creation**:
    - Generates a **reflective summary** of the entire document
    - Creates root memory with summary content
 4. **Child Creation**:
@@ -166,11 +234,7 @@ When ingesting **large documents** (>8000 tokens), OpenMemory automatically crea
 {
   "success": true,
   "rootMemoryId": "mem_root_123",
-  "childMemoryIds": [
-    "mem_child_456",
-    "mem_child_789",
-    "mem_child_abc"
-  ],
+  "childMemoryIds": ["mem_child_456", "mem_child_789", "mem_child_abc"],
   "message": "Document ingested with root-child structure",
   "metadata": {
     "totalSections": 3,
@@ -193,7 +257,10 @@ function splitIntoSections(text: string, maxChars: number = 3000): string[] {
   let currentSection = '';
 
   for (const paragraph of paragraphs) {
-    if (currentSection.length + paragraph.length > maxChars && currentSection.length > 0) {
+    if (
+      currentSection.length + paragraph.length > maxChars &&
+      currentSection.length > 0
+    ) {
       sections.push(currentSection.trim());
       currentSection = paragraph;
     } else {
@@ -232,12 +299,14 @@ async function extractPDF(buffer: Buffer): Promise<string> {
 ```
 
 **Features**:
+
 - Multi-page text extraction
 - Preserves line breaks
 - Handles embedded fonts
 - UTF-8 encoding
 
 **Limitations**:
+
 - Images and charts are ignored
 - Complex layouts may have formatting issues
 - Scanned PDFs require OCR (not included)
@@ -256,12 +325,14 @@ async function extractDOCX(buffer: Buffer): Promise<string> {
 ```
 
 **Features**:
+
 - Raw text extraction
 - Preserves paragraph structure
 - Handles tables and lists
 - UTF-8 encoding
 
 **Limitations**:
+
 - Images and embedded objects ignored
 - Complex formatting stripped
 - Comments and tracked changes not extracted
@@ -276,19 +347,21 @@ import TurndownService from 'turndown';
 function extractHTML(html: string): Promise<string> {
   const turndown = new TurndownService({
     headingStyle: 'atx',
-    codeBlockStyle: 'fenced'
+    codeBlockStyle: 'fenced',
   });
   return Promise.resolve(turndown.turndown(html));
 }
 ```
 
 **Features**:
+
 - HTML to Markdown conversion
 - Preserves headings, lists, code blocks
 - Removes scripts and styles
 - Clean text output
 
 **Conversions**:
+
 - `<h1>` → `# Heading`
 - `<strong>` → `**bold**`
 - `<code>` → `` `code` ``
@@ -307,12 +380,14 @@ async function fetchURL(url: string): Promise<string> {
 ```
 
 **Features**:
+
 - Automatic HTTP/HTTPS handling
 - Follows redirects
 - Converts HTML to Markdown
 - UTF-8 encoding
 
 **Limitations**:
+
 - No JavaScript execution (static content only)
 - No authentication support
 - Rate limits from target sites
@@ -357,6 +432,7 @@ async function fetchURL(url: string): Promise<string> {
 ### Rate Limiting
 
 When ingesting **many documents**:
+
 - Use **Simple embedding mode** to reduce API calls
 - Add delays between ingestions
 - Monitor embedding provider rate limits
@@ -364,6 +440,7 @@ When ingesting **many documents**:
 ### Database Growth
 
 Each ingested document creates:
+
 - 1 root memory (if large)
 - N child memories (sections)
 - N waypoints (root-child links)

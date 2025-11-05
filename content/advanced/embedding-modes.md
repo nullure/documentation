@@ -1,22 +1,183 @@
 ---
 title: Embedding Modes
-description: Optimize performance with Simple vs Advanced embedding strategies
+description: Backend configuration for embedding generation strategies
 ---
 
 # Embedding Modes
 
-OpenMemory supports two embedding modes that balance **speed vs precision** for the HMD v2 multi-sector specification.
+OpenMemory backend supports different embedding generation strategies that affect performance and cost. **This is a backend configuration** - SDKs automatically work with whatever mode the backend is using.
 
 ## Overview
 
-The HMD v2 specification requires **5 sector embeddings** per memory:
-1. Factual
-2. Emotional  
-3. Temporal
-4. Relational
-5. Behavioral
+OpenMemory uses the HSG (Hierarchical Semantic Graph) tiered system with multiple embedding strategies for the 5 brain sectors:
 
-Different embedding modes control how these 5 embeddings are generated.
+- **Episodic** - Event memories (temporal data)
+- **Semantic** - Facts & preferences (factual data)
+- **Procedural** - Habits, triggers (action patterns)
+- **Emotional** - Sentiment states (tone analysis)
+- **Reflective** - Meta memory & logs (audit trail)
+
+## Backend Configuration
+
+Configure the backend's embedding behavior via environment variables in `.env`:
+
+```env
+# Embedding provider (backend only)
+OM_EMBEDDINGS=openai  # or gemini, voyage, ollama, synthetic
+
+# OpenAI settings
+OPENAI_API_KEY=your_key
+OM_OPENAI_MODEL=text-embedding-3-small
+
+# Gemini settings
+GEMINI_API_KEY=your_key
+
+# Ollama settings
+OM_OLLAMA_URL=http://localhost:11434
+
+# Embedding mode (for advanced use)
+OM_EMBED_MODE=simple
+```
+
+## Supported Providers
+
+The backend supports multiple embedding providers:
+
+| Provider      | Models                                         | Use Case                 |
+| ------------- | ---------------------------------------------- | ------------------------ |
+| **OpenAI**    | text-embedding-3-small, text-embedding-3-large | Production, high quality |
+| **Gemini**    | embedding-001                                  | Google ecosystem         |
+| **Voyage**    | voyage-2, voyage-large-2                       | Specialized embeddings   |
+| **Ollama**    | Local models                                   | Privacy, offline         |
+| **Synthetic** | Built-in                                       | Development, testing     |
+
+### Configuration Examples
+
+**OpenAI (Recommended)**
+
+```env
+OM_EMBEDDINGS=openai
+OPENAI_API_KEY=sk-...
+OM_OPENAI_MODEL=text-embedding-3-small
+```
+
+**Gemini**
+
+```env
+OM_EMBEDDINGS=gemini
+GEMINI_API_KEY=...
+```
+
+**Ollama (Local)**
+
+```env
+OM_EMBEDDINGS=ollama
+OM_OLLAMA_URL=http://localhost:11434
+```
+
+**Synthetic (Testing)**
+
+```env
+OM_EMBEDDINGS=synthetic
+```
+
+## Memory Tiers
+
+The backend uses different performance tiers:
+
+| Tier       | Dimensions | QPS      | Use Case               |
+| ---------- | ---------- | -------- | ---------------------- |
+| **fast**   | 256        | 700-850  | Local apps, extensions |
+| **smart**  | 384        | 500-600  | Production servers     |
+| **deep**   | 1536       | 350-400  | Cloud, high-accuracy   |
+| **hybrid** | 256 + BM25 | 800-1000 | Best of both worlds    |
+
+Configure via:
+
+```env
+OM_TIER=hybrid  # or fast, smart, deep
+```
+
+## SDK Usage
+
+**The SDKs don't need any embedding configuration** - they just send text to the backend which handles all embedding generation.
+
+### Python
+
+```python
+from openmemory import OpenMemory
+
+om = OpenMemory(api_key="your_key", base_url="http://localhost:8080")
+
+# Backend handles embeddings automatically
+result = om.add("Python uses dynamic typing")
+```
+
+### JavaScript/TypeScript
+
+```typescript
+import OpenMemory from "openmemory-js";
+
+const om = new OpenMemory({
+  apiKey: "your_key",
+  baseUrl: "http://localhost:8080",
+});
+
+// Backend handles embeddings automatically
+await om.add("JavaScript is single-threaded");
+```
+
+## Performance Considerations
+
+### Rate Limiting
+
+Different providers have different rate limits:
+
+- **OpenAI**: 3,000 RPM (requests per minute) on tier 1
+- **Gemini**: May hit 429 errors under load
+- **Ollama**: Limited by local hardware
+- **Synthetic**: No limits
+
+### Cost
+
+- **OpenAI**: ~$0.02 per 1M tokens (text-embedding-3-small)
+- **Gemini**: Free tier available
+- **Ollama**: Free (self-hosted)
+- **Synthetic**: Free
+
+### Latency
+
+- **OpenAI**: ~50-200ms per request
+- **Gemini**: ~100-300ms per request
+- **Ollama**: Varies by hardware (50-500ms)
+- **Synthetic**: &lt;1msms (instant)
+
+## Switching Providers
+
+Change providers by updating `.env` and restarting the backend:
+
+```bash
+# Update .env
+echo "OM_EMBEDDINGS=openai" >> .env
+echo "OPENAI_API_KEY=sk-..." >> .env
+
+# Restart backend
+npm run dev
+```
+
+**No SDK changes needed** - client code stays the same.
+
+## Related Configuration
+
+- [Environment Variables](/docs/configuration/environment-variables) - All OM\_\* settings
+- [Memory Tiers](/docs/concepts/memory-tiers) - HSG tier system
+- [Brain Sectors](/docs/concepts/sectors) - 5 sector architecture
+
+## Next Steps
+
+- Set up your preferred embedding provider
+- Choose appropriate memory tier for your use case
+- Use SDKs without worrying about embeddings
 
 ## Simple Mode (Default)
 
@@ -25,6 +186,7 @@ Different embedding modes control how these 5 embeddings are generated.
 ### How It Works
 
 Instead of making 5 separate embedding API calls, Simple mode:
+
 1. Constructs 5 sector-specific prompts
 2. Sends them in a **single batch request**
 3. Receives all 5 embeddings at once
@@ -66,8 +228,8 @@ const response = await openai.embeddings.create({
     "Emotional: User feels frustrated with bright UI",
     "Temporal: User changed settings today",
     "Relational: User interacts with design team",
-    "Behavioral: User actively customizes interface"
-  ]
+    "Behavioral: User actively customizes interface",
+  ],
 });
 
 // response.data contains 5 embeddings
@@ -80,6 +242,7 @@ const response = await openai.embeddings.create({
 ### How It Works
 
 Advanced mode makes **individual embedding requests** for each sector:
+
 1. Generates sector-specific prompt
 2. Calls embedding API
 3. (Optional) Waits for delay
@@ -95,11 +258,11 @@ EMBED_DELAY_MS=200
 
 ### Options
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `EMBED_MODE` | string | `simple` | Set to `advanced` to enable |
-| `ADV_EMBED_PARALLEL` | boolean | `false` | Run 5 calls in parallel |
-| `EMBED_DELAY_MS` | number | `200` | Delay between sequential calls (ms) |
+| Variable             | Type    | Default  | Description                         |
+| -------------------- | ------- | -------- | ----------------------------------- |
+| `EMBED_MODE`         | string  | `simple` | Set to `advanced` to enable         |
+| `ADV_EMBED_PARALLEL` | boolean | `false`  | Run 5 calls in parallel             |
+| `EMBED_DELAY_MS`     | number  | `200`    | Delay between sequential calls (ms) |
 
 ### Advantages
 
@@ -144,19 +307,19 @@ ADV_EMBED_PARALLEL=true
 ```typescript
 // 5 parallel API calls (no delay)
 const embeddings = await Promise.all(
-  sectors.map(sector => getEmbedding(sectorPrompt[sector]))
+  sectors.map((sector) => getEmbedding(sectorPrompt[sector]))
 );
 ```
 
 ## Performance Comparison
 
-| Mode | API Calls | Latency (est.) | Rate Limit Risk | Cost | Accuracy |
-|------|-----------|----------------|-----------------|------|----------|
-| **Simple** | 1 batch | ~200ms | Low | Lower | Good |
-| **Advanced (Sequential)** | 5 separate | ~1000ms+ | Medium | Higher | Better |
-| **Advanced (Parallel)** | 5 parallel | ~200ms | **High** | Higher | Better |
+| Mode                      | API Calls  | Latency (est.) | Rate Limit Risk | Cost   | Accuracy |
+| ------------------------- | ---------- | -------------- | --------------- | ------ | -------- |
+| **Simple**                | 1 batch    | ~200ms         | Low             | Lower  | Good     |
+| **Advanced (Sequential)** | 5 separate | ~1000ms+       | Medium          | Higher | Better   |
+| **Advanced (Parallel)**   | 5 parallel | ~200ms         | **High**        | Higher | Better   |
 
-*Latency estimates assume 200ms per embedding API call*
+_Latency estimates assume 200ms per embedding API call_
 
 ## Rate Limiting Considerations
 
@@ -183,10 +346,10 @@ const embeddings = await Promise.all(
 ### Simple Mode: Gemini
 
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'embedding-001' });
+const model = genAI.getGenerativeModel({ model: "embedding-001" });
 
 const result = await model.batchEmbedContents({
   requests: [
@@ -194,8 +357,8 @@ const result = await model.batchEmbedContents({
     { content: { parts: [{ text: emotionalPrompt }] } },
     { content: { parts: [{ text: temporalPrompt }] } },
     { content: { parts: [{ text: relationalPrompt }] } },
-    { content: { parts: [{ text: behavioralPrompt }] } }
-  ]
+    { content: { parts: [{ text: behavioralPrompt }] } },
+  ],
 });
 
 // result.embeddings contains 5 vectors
@@ -209,7 +372,7 @@ const embeddings = [];
 for (const [sector, prompt] of Object.entries(sectorPrompts)) {
   const embedding = await getEmbedding(prompt);
   embeddings.push(embedding);
-  
+
   if (env.embed_delay_ms > 0) {
     await sleep(env.embed_delay_ms);
   }
@@ -241,15 +404,19 @@ npm start
 ## Recommendations
 
 ### For Most Users
+
 Use **Simple mode** - it's fast, cost-effective, and accurate enough for production.
 
 ### For High Precision
+
 Use **Advanced mode (Sequential)** if you need maximum sector separation and can tolerate higher latency.
 
 ### For Research
+
 Use **Advanced mode (Parallel)** during development to quickly test different sector prompts.
 
 ### For Rate-Limited APIs
+
 Use **Simple mode** with Gemini to minimize 429 errors.
 
 ## Next Steps

@@ -1,398 +1,498 @@
 ---
 title: Decay Algorithm
-description: Visualize and understand how OpenMemory's HMD v2 decay algorithm works in practice
+description: OpenMemory's HSG-based tiered decay system with hot/warm/cold memory states
 ---
 
 # Decay Algorithm
 
-Visualize and understand how OpenMemory's HMD v2 decay algorithm works in practice.
+OpenMemory uses a **Hierarchical Semantic Graph (HSG)** decay system with three memory tiers that automatically adjust based on access patterns and age.
 
-## Interactive Decay Visualization
+## Overview
 
-The decay visualization on the homepage shows real-time memory strength decay over a 30-day period using different decay rates.
+Unlike simple time-based decay, OpenMemory's HSG system:
 
-### Understanding the Curves
+- **Classifies memories into tiers** (hot/warm/cold) based on recency and usage
+- **Applies tier-specific decay rates** (λ values)
+- **Compresses vectors** as memories cool down
+- **Fingerprints cold memories** to minimal representations
+- **Regenerates on access** when needed
 
-```
-Strength (0-1.0)
-     │
-1.0  ├─────┐
-     │      ╲___
-0.8  │          ╲___
-     │              ╲___  Critical (0.99)
-0.6  │                  ╲___
-     │              Important (0.97) ╲___
-0.4  │          Regular (0.95)           ╲___
-     │      Ephemeral (0.90) ╲___            ╲___
-0.2  │                            ╲___            ╲___
-     │                                ╲___            ╲___
-0.0  └───────────────────────────────────────────────────
-     0    5    10   15   20   25   30   35   40   45   50
-                         Days
-```
+## Three-Tier System
 
-## Decay Rate Impact
+### Hot Memories (Active)
 
-### Half-Life Calculation
+**Criteria**: Recently accessed AND high activity
 
-The **half-life** is the time it takes for memory strength to decay to 50%:
+- Last seen < 6 days AND (coactivations > 5 OR salience > 0.7)
 
-```
-t_half = ln(0.5) / ln(decay_rate)
-```
+**Decay Rate**: λ = 0.005 (very slow decay)
 
-| Decay Rate | Half-Life | Use Case                              |
-| ---------- | --------- | ------------------------------------- |
-| 0.99       | ~69 days  | System critical, permanent knowledge  |
-| 0.97       | ~23 days  | Important context, user preferences   |
-| 0.95       | ~14 days  | Regular memories, general information |
-| 0.90       | ~7 days   | Session data, temporary context       |
-| 0.85       | ~4.5 days | Ephemeral, cache-like behavior        |
+**Behavior**:
 
-### Mathematical Derivation
+- Full vector dimensions maintained
+- No compression applied
+- Highest priority in queries
+- Optimal retrieval performance
 
-Starting from the decay formula:
+**Example**:
 
-```
-S(t) = S₀ × (decay_rate)^t
+```python
+# Recently queried important memory
+# Last seen: 2 days ago, coactivations: 8, salience: 0.85
+# Status: HOT
+# Vector: Full dimensions (256d/384d/1536d depending on tier)
 ```
 
-When `S(t) = 0.5 × S₀` (half strength):
+---
+
+### Warm Memories (Recent)
+
+**Criteria**: Recent OR moderate salience
+
+- Last seen < 6 days OR salience > 0.4
+
+**Decay Rate**: λ = 0.02 (moderate decay)
+
+**Behavior**:
+
+- Vectors begin compressing when f < 0.7
+- Summary starts condensing
+- Still readily accessible
+- Balanced performance
+
+**Example**:
+
+```python
+# Memory accessed a few days ago
+# Last seen: 4 days ago, salience: 0.55
+# Status: WARM
+# Vector: May be compressed if decay factor drops
+```
+
+---
+
+### Cold Memories (Archived)
+
+**Criteria**: Old AND low salience
+
+- Doesn't meet hot or warm criteria
+
+**Decay Rate**: λ = 0.05 (fast decay)
+
+**Behavior**:
+
+- Heavy compression when f < 0.7
+- Fingerprinting when f < cold_threshold (default 0.25-0.3)
+- Minimal storage footprint
+- Can be regenerated on access
+
+**Example**:
+
+```python
+# Old memory rarely accessed
+# Last seen: 45 days ago, salience: 0.18
+# Status: COLD
+# Vector: Fingerprinted to 32d, summary reduced to keywords
+```
+
+## Decay Formula
+
+The decay factor determines memory transformation:
 
 ```
-0.5 × S₀ = S₀ × (decay_rate)^t
-0.5 = (decay_rate)^t
-ln(0.5) = t × ln(decay_rate)
-t = ln(0.5) / ln(decay_rate)
+f = exp(-λ × dt / (salience + 0.1))
 ```
+
+Where:
+
+- `λ` = Tier-specific decay constant (0.005/0.02/0.05)
+- `dt` = Time elapsed in days since last access
+- `salience` = Current memory strength (0-1), boosted by coactivations
+
+### Salience Calculation
+
+```
+salience = clamp((base_salience × (1 + ln(1 + coactivations))), 0, 1)
+```
+
+Salience increases logarithmically with access count, preventing unbounded growth.
+
+### New Salience After Decay
+
+```
+new_salience = clamp(salience × f, 0, 1)
+```
+
+## Compression Mechanics
+
+### Vector Compression
+
+When decay factor `f < 0.7`, vectors are compressed:
+
+```python
+# Original vector: 1536 dimensions
+# Decay factor: f = 0.6
+# Target dimensions: floor(1536 × 0.6) = 922 dimensions
+
+# Compression via pooling
+bucket_size = ceil(original_dim / target_dim)
+compressed_vec = [mean(vec[i:i+bucket_size]) for i in range(0, len(vec), bucket_size)]
+normalized = normalize(compressed_vec)
+```
+
+**Compression Limits**:
+
+- **Minimum**: 64 dimensions
+- **Maximum**: Original dimensions (256/384/1536 based on `OM_TIER`)
+
+**Example**: 1536d → 922d → 614d → 384d → 256d → 128d → 64d (min)
+
+### Summary Compression
+
+Summaries compress in layers based on decay factor:
+
+```python
+if f > 0.8:
+    # Light compression - truncate
+    summary = original[:200] + "..."
+elif f > 0.4:
+    # Medium compression - extractive summary
+    summary = top_sentences(original, 3)[:80]
+else:
+    # Heavy compression - keywords only
+    summary = " ".join(top_keywords(original, 5))
+```
+
+### Fingerprinting
+
+When `f < cold_threshold` (default 0.25-0.3), memories are fingerprinted:
+
+```python
+# Create minimal representation
+fingerprint_vector = hash_to_vec(id + summary, 32)  # 32 dimensions
+fingerprint_summary = " ".join(top_keywords(content, 3))  # 3 keywords
+
+# Replace full memory
+update_vector(id, fingerprint_vector)
+update_summary(id, fingerprint_summary)
+```
+
+Fingerprinted memories occupy minimal space but can be regenerated when accessed.
 
 ## Practical Examples
 
-### Example 1: User Preference
+### Example 1: Hot Memory Lifecycle
 
 ```python
-# User sets dark mode preference
-preference = om.add(
-    content="User prefers dark mode interface",
-    salience=0.9,  # High importance
-    decay_lambda=0.05  # Slow decay (semantic memory)
-)
+# Day 0: Add important memory
+om.add("Critical API authentication flow uses JWT tokens")
+# Status: HOT (salience=0.8, coactivations=0)
+# Vector: 1536d full resolution
 
-# Track salience over time
-# day_1 = 0.9 * exp(-0.05 * 1) = 0.856
-# day_7 = 0.9 * exp(-0.05 * 7) = 0.632
-# day_14 = 0.9 * exp(-0.05 * 14) = 0.444
-# day_30 = 0.9 * exp(-0.05 * 30) = 0.201
+# Day 2: Query increases coactivations
+om.query("authentication")  # Match found
+# Status: HOT (salience=0.85, coactivations=1, last_seen=now)
+# λ = 0.005, decay factor f ≈ 0.99
+# Vector: Still 1536d
+
+# Day 10: Another query
+om.query("JWT tokens")  # Match found
+# Status: HOT (salience=0.90, coactivations=2, last_seen=now)
+# Vector: 1536d (maintained by hot status)
+
+# Result: Stays hot through regular access
 ```
 
-After 30 days without access, the preference is weakening but still retrievable.
-
-### Example 2: Learning Material
+### Example 2: Warm Memory Decay
 
 ```python
-# User studies Python decorators
-memory = om.add(
-    content="@property decorator creates managed attributes",
-    salience=0.8,
-    decay_lambda=0.1  # Moderate decay
-)
+# Day 0: Add general information
+om.add("Python supports list comprehensions for concise iteration")
+# Status: WARM (salience=0.6, coactivations=0)
 
-# With regular reinforcement (every 5 days)
-# Day 0: salience = 0.8
-# Day 5: query and reinforce → salience boosted to 0.9
-# Day 10: query and reinforce → salience boosted to 0.95
-# Day 15: query and reinforce → salience maintained
-# Result: Maintained through spaced repetition
+# Day 5: No access, decaying
+# λ = 0.02, dt = 5 days
+# f = exp(-0.02 × 5 / (0.6 + 0.1)) ≈ 0.87
+# new_salience = 0.6 × 0.87 = 0.522
+# Status: WARM
+# Vector: 1536d (f > 0.7, no compression yet)
+
+# Day 12: More decay
+# dt = 12 days
+# f = exp(-0.02 × 12 / (0.522 + 0.1)) ≈ 0.70
+# new_salience = 0.522 × 0.70 = 0.365
+# Status: WARM
+# Vector: 1536d (just at threshold)
+
+# Day 20: Compression begins
+# dt = 20 days
+# f = exp(-0.02 × 20 / (0.365 + 0.1)) ≈ 0.46
+# new_salience = 0.365 × 0.46 = 0.168
+# Status: COLD (salience < 0.4, old)
+# Vector: Compressed to ~700d (1536 × 0.46)
+# Summary: Compressed to keywords
 ```
 
-### Example 3: Session Context
+### Example 3: Cold Memory Fingerprinting
 
 ```python
-# Temporary conversation context
-context = om.add(
-    content="User is debugging authentication flow",
-    salience=0.6,  # Medium importance
-    decay_lambda=0.2,  # Fast decay (episodic memory)
-    metadata={"sector": "episodic"}
-)
+# Day 0: Add session context
+om.add("User debugging timeout issue in production", salience=0.5)
+# Status: WARM
 
-# Strength over time
-# hour_6 = 0.6 * exp(-0.2 * 0.25) ≈ 0.571
-# hour_12 = 0.6 * exp(-0.2 * 0.5) ≈ 0.543
-# day_1 = 0.6 * exp(-0.2 * 1) ≈ 0.491
-# day_3 = 0.6 * exp(-0.2 * 3) ≈ 0.329
-# day_7 = 0.6 * exp(-0.2 * 7) ≈ 0.151
+# Day 45: Long time, no access
+# λ = 0.05 (cold), dt = 45 days
+# f = exp(-0.05 × 45 / (0.5 + 0.1)) ≈ 0.0055
+# new_salience = 0.5 × 0.0055 = 0.0027
+# Status: COLD
+# f < 0.25 → FINGERPRINT
+
+# Vector: 32d fingerprint (minimal)
+# Summary: "user debug timeout"
+# Storage: ~95% reduced
+
+# Later: User queries "timeout issues"
+# Match found in fingerprint
+# on_query_hit() triggered
+# → Regenerate full embedding from original content
+# → Restore to WARM status
+# → salience boosted to 0.5 + 0.5 = 1.0
 ```
 
-Context quickly fades when not accessed.
+## Reinforcement and Regeneration
 
-## Reinforcement Effects
+### Automatic Reinforcement on Query
 
-### Single Reinforcement
+When `OM_DECAY_REINFORCE_ON_QUERY=true` (default), matched memories are reinforced:
 
 ```python
-# Initial strength: 0.5
-# After 10 days: 0.5 * 0.95^10 = 0.299
+# Query matches a memory
+results = om.query("authentication flow")
 
-# User reinforces memory
-om.reinforce_memory("mem_123", boost=0.2)
-# New strength: 0.299 + 0.2 = 0.499
+# For each match, automatic reinforcement:
+new_salience = min(1.0, current_salience + 0.5)
+last_seen_at = now()
 
-# After another 10 days: 0.499 * 0.95^10 = 0.298
+# Example:
+# Before: salience = 0.35 (cold)
+# After:  salience = 0.85 (hot again!)
 ```
 
-### Repeated Reinforcement
+This prevents useful memories from fading away.
+
+### Regeneration on Access
+
+When `OM_REGENERATION_ENABLED=true` (default), fingerprinted memories regenerate:
 
 ```python
-def reinforce_formula(current_strength, alpha=0.15):
-    """Asymptotic reinforcement"""
-    return min(1.0, current_strength + alpha * (1 - current_strength))
+# Memory is fingerprinted (32d vector, keyword summary)
+# User queries and matches fingerprint
 
-# Starting at 0.3
-reinforcement_1 = 0.3 + 0.15 * (1 - 0.3) = 0.405
-reinforcement_2 = 0.405 + 0.15 * (1 - 0.405) = 0.494
-reinforcement_3 = 0.494 + 0.15 * (1 - 0.494) = 0.570
-reinforcement_4 = 0.570 + 0.15 * (1 - 0.570) = 0.635
+# Automatic regeneration:
+# 1. Extract original content from database
+# 2. Generate full embedding (256d/384d/1536d)
+# 3. Replace fingerprint with full vector
+# 4. Boost salience significantly
+# 5. Update last_seen_at
+
+# Result: Memory restored to full fidelity
 ```
 
-Repeated reinforcement gradually strengthens memory towards 1.0.
+### Manual Reinforcement
 
-## Access Patterns
-
-### Access Multiplier
-
-Each memory access increases a multiplier:
+Explicitly reinforce important memories:
 
 ```python
-access_multiplier = 1 + (0.3 * log(1 + access_count))
+# Reinforce specific memory
+om.reinforce(memory_id="mem_123")
 
-# Access history
-access_0 = 1 + 0.3 * log(1) = 1.000
-access_1 = 1 + 0.3 * log(2) = 1.208
-access_5 = 1 + 0.3 * log(6) = 1.538
-access_10 = 1 + 0.3 * log(11) = 1.719
-access_50 = 1 + 0.3 * log(51) = 2.175
+# Backend applies reinforcement formula:
+# new_salience = min(1.0, old_salience + boost_amount)
+# where boost_amount is typically 0.2-0.5
 ```
 
-Frequently accessed memories decay slower.
+## Environment Configuration
 
-### Combined Effect
+Control decay behavior via environment variables:
+
+```bash
+# Decay threads for parallel processing
+OM_DECAY_THREADS=3
+
+# Cold threshold for fingerprinting (0.0-1.0)
+OM_DECAY_COLD_THRESHOLD=0.25
+
+# Auto-reinforce on query matches
+OM_DECAY_REINFORCE_ON_QUERY=true
+
+# Regenerate fingerprinted memories on access
+OM_REGENERATION_ENABLED=true
+
+# Max vector dimensions before compression
+OM_MAX_VECTOR_DIM=1536
+
+# Min vector dimensions after compression
+OM_MIN_VECTOR_DIM=64
+
+# Summary compression layers (1-3)
+OM_SUMMARY_LAYERS=3
+
+# Decay batch ratio (portion of memories to decay per cycle)
+OM_DECAY_RATIO=0.03
+
+# Sleep between segment processing (ms)
+OM_DECAY_SLEEP_MS=200
+
+# Base tier dimensions (affects max compression)
+OM_TIER=hybrid  # fast=256d, smart=384d, deep=1536d, hybrid=256d+BM25
+```
+
+See [Environment Variables](/docs/advanced/environment-variables) for full reference.
+
+## Decay Process Lifecycle
+
+### Periodic Decay Cycle
+
+```typescript
+// Runs every OM_DECAY_INTERVAL_MINUTES (default 1440 = 24 hours)
+
+1. Check if queries are active (skip if active_q > 0)
+2. Check cooldown period (skip if < 60s since last decay)
+3. For each memory segment:
+   a. Load batch of memories (OM_DECAY_RATIO × segment_size)
+   b. Classify each into hot/warm/cold tier
+   c. Calculate decay factor f = exp(-λ × dt / (salience + 0.1))
+   d. Apply salience decay: new_salience = salience × f
+   e. If f < 0.7: compress vector and summary
+   f. If f < cold_threshold: fingerprint memory
+   g. Update database with new values
+   h. Sleep OM_DECAY_SLEEP_MS between segments
+4. Log statistics: processed, changed, compressed, fingerprinted
+```
+
+### Batch Processing
 
 ```python
-# Memory with decay_rate=0.95, access_count=10
-base_strength = 0.8
-days_elapsed = 14
-access_mult = 1 + 0.3 * log(11) = 1.719
+# Decay processes memories in batches
+batch_size = floor(segment_size × OM_DECAY_RATIO)  # e.g., 3% per cycle
+random_start = random(0, segment_size - batch_size)
+batch = memories[random_start:random_start + batch_size]
 
-# Without access multiplier
-strength_no_access = 0.8 * (0.95 ** 14) = 0.399
+# Distribute across threads
+threads = OM_DECAY_THREADS (default: 3)
+per_thread = batch_size / threads
 
-# With access multiplier
-strength_with_access = 0.399 * 1.719 = 0.686
+# Parallel processing for performance
+await Promise.all(threads.map(process_batch))
 ```
 
-The memory retains 72% more strength due to repeated access!
-
-## Contextual Decay
-
-### Related Memory Boost
-
-When related memories are accessed, strength gets a boost:
-
-```python
-def contextual_strength(base_strength, related_access_count, beta=0.2):
-    context_boost = 1 + (beta * log(1 + related_access_count))
-    return base_strength * context_boost
-
-# Memory A (related to recently accessed memories)
-base = 0.4
-related_accesses = 5
-boosted = 0.4 * (1 + 0.2 * log(6)) = 0.514
-```
-
-### Sector Decay Multiplier
-
-Memories in active sectors decay slower:
-
-```python
-# Active sector: multiplier = 0.95
-# Normal sector: multiplier = 1.00
-# Archived sector: multiplier = 1.05
-
-# Memory in active sector
-strength_active = 0.6 * ((0.95 * 0.95) ** 14) = 0.272
-
-# Same memory in normal sector
-strength_normal = 0.6 * (0.95 ** 14) = 0.299
-
-# Same memory in archived sector
-strength_archived = 0.6 * ((0.95 * 1.05) ** 14) = 0.329
-```
-
-## Optimization Strategies
-
-### Adaptive Decay Rates
-
-Automatically adjust decay rates based on usage:
-
-```python
-def adjust_decay_rate(memory):
-    """Adjust decay rate based on access patterns"""
-
-    if memory.access_count > 50:
-        # Frequently accessed → slow decay
-        return min(0.99, memory.decay_rate + 0.01)
-
-    elif memory.access_count < 5 and memory.age_days > 30:
-        # Rarely accessed and old → fast decay
-        return max(0.90, memory.decay_rate - 0.02)
-
-    elif memory.reinforcement_count > 10:
-        # Explicitly reinforced → preserve
-        return min(0.98, memory.decay_rate + 0.01)
-
-    return memory.decay_rate
-```
-
-### Batch Updates
-
-```python
-# Update strengths in batch
-om.batch_update_strengths(
-    batch_size=1000,
-    parallel=True,
-    threshold=0.1  # Only update if change > 10%
-)
-```
-
-### Decay Schedule
-
-```python
-# Different update frequencies
-CRITICAL_MEMORIES = 'hourly'   # Real-time accuracy
-ACTIVE_MEMORIES = 'daily'      # Balance accuracy/performance
-ARCHIVED_MEMORIES = 'weekly'   # Minimal overhead
-```
+This ensures decay doesn't overload the system.
 
 ## Monitoring Decay
 
-### Strength Distribution
+### Decay Logs
 
-```python
-# Get strength histogram
-distribution = om.get_strength_distribution(bins=10)
+Watch decay process in action:
 
-print("Strength Distribution:")
-for bin in distribution:
-    print(f"{bin.range}: {'█' * int(bin.count / 10)} ({bin.count})")
-
-# Output:
-# 0.9-1.0: ████ (42)
-# 0.8-0.9: ████████ (83)
-# 0.7-0.8: ███████████ (115)
-# 0.6-0.7: █████████████ (134)
-# 0.5-0.6: ██████████ (102)
-# 0.4-0.5: ███████ (68)
-# 0.3-0.4: ████ (45)
-# 0.2-0.3: ██ (23)
-# 0.1-0.2: █ (12)
-# 0.0-0.1: █ (8)
+```bash
+# Typical decay cycle output
+[decay-2.0] 87/2891 | tiers: hot=342 warm=1456 cold=1093 | compressed=12 fingerprinted=3 | 1247.3ms across 15 segments
 ```
 
-### Weak Memory Detection
+**Interpretation**:
 
-```python
-# Find memories approaching archival threshold
-weak_memories = om.find_memories(
-    max_strength=0.15,
-    min_age_days=7,
-    order_by='strength_asc'
-)
+- `87/2891`: 87 memories changed out of 2891 processed
+- `hot=342`: 342 memories in hot tier
+- `warm=1456`: 1456 memories in warm tier
+- `cold=1093`: 1093 memories in cold tier
+- `compressed=12`: 12 vectors compressed
+- `fingerprinted=3`: 3 memories fingerprinted
+- `1247.3ms`: Processing time
+- `15 segments`: Memory segments processed
 
-print(f"Found {len(weak_memories)} weak memories")
+### Query-Time Reinforcement Logs
 
-for mem in weak_memories:
-    print(f"ID: {mem.id}, Strength: {mem.strength:.3f}, Age: {mem.age_days} days")
+```bash
+# When memory is accessed
+[decay-2.0] regenerated/reinforced memory mem_abc123def456
 ```
 
-### Decay Analytics
-
-```python
-# Analyze decay trends
-analytics = om.analyze_decay_trends(period='30d')
-
-print(f"Average decay rate: {analytics.avg_decay_rate:.3f}")
-print(f"Memories archived: {analytics.archived_count}")
-print(f"Memories reinforced: {analytics.reinforced_count}")
-print(f"Avg strength change: {analytics.avg_strength_delta:.3f}")
-```
-
-## Simulation Tools
-
-### Decay Simulator
-
-```python
-# Simulate decay over time
-simulation = om.simulate_decay(
-    memory_id="mem_123",
-    days=60,
-    reinforcements=[7, 14, 28],  # Days to reinforce
-    access_schedule='weekly'
-)
-
-simulation.plot()  # Visualize decay curve with interventions
-```
-
-### A/B Testing Decay Rates
-
-```python
-# Test different decay rates
-results = om.test_decay_strategies(
-    strategies={
-        'aggressive': 0.90,
-        'moderate': 0.95,
-        'conservative': 0.98
-    },
-    duration_days=30,
-    sample_size=1000
-)
-
-results.compare()  # Show retention vs. storage cost tradeoff
-```
+Indicates automatic regeneration or reinforcement occurred.
 
 ## Best Practices
 
-1. **Match decay rate to content type**
+### Trust the Tiered System
 
-   - System knowledge: 0.99
-   - User data: 0.97
-   - Session context: 0.90
+The hot/warm/cold classification is automatic and intelligent:
 
-2. **Use reinforcement strategically**
+```python
+# Don't manually set decay_lambda on individual memories
+# The tier system handles it automatically based on:
+# - Recency (last_seen_at)
+# - Activity (coactivations)
+# - Importance (salience)
+```
 
-   - Explicit user feedback
-   - Spaced repetition schedules
-   - Query-time implicit reinforcement
+### Configure Thresholds Appropriately
 
-3. **Monitor and adjust**
+Adjust based on your use case:
 
-   - Track strength distributions
-   - Archive weak memories
-   - Adjust rates based on usage
+```bash
+# Long-term knowledge base
+OM_DECAY_COLD_THRESHOLD=0.15  # Keep more memories unfingerpinted
 
-4. **Consider context**
+# Short-term cache
+OM_DECAY_COLD_THRESHOLD=0.35  # Aggressive fingerprinting
 
-   - Active sectors need slower decay
-   - Related memories boost each other
-   - Access patterns matter
+# Balanced (default)
+OM_DECAY_COLD_THRESHOLD=0.25
+```
 
-5. **Optimize performance**
-   - Batch strength updates
-   - Cache calculated strengths
-   - Index by strength for fast queries
+### Enable Reinforcement
+
+Keep useful memories alive:
+
+```bash
+# Recommended for all use cases
+OM_DECAY_REINFORCE_ON_QUERY=true
+
+# Prevents frequently queried memories from fading
+```
+
+### Monitor Tier Distribution
+
+Check if distribution matches your use case:
+
+```python
+# Get stats
+stats = om.get_stats()
+
+# Check tier distribution in logs
+# Healthy distribution example:
+# hot=20% (active recent memories)
+# warm=50% (generally accessible)
+# cold=30% (archived but retrievable)
+
+# Adjust OM_DECAY_COLD_THRESHOLD if needed
+```
+
+### Tune Compression Aggressiveness
+
+Control storage vs. fidelity tradeoff:
+
+```bash
+# Preserve more fidelity
+OM_MIN_VECTOR_DIM=128  # Compress less aggressively
+OM_SUMMARY_LAYERS=3    # More detailed summaries
+
+# Maximize storage savings
+OM_MIN_VECTOR_DIM=64   # Compress more
+OM_SUMMARY_LAYERS=1    # Minimal summaries
+```
 
 ## Next Steps
 
-- Understand [HMD v2 Specification](/docs/concepts/hmd-v2) in depth
-- Learn about [Reinforcement API](/docs/api/reinforce)
-- Explore [Advanced Configuration](/docs/advanced/chunking)
+- Understand [HSG Architecture in HMD v2](/docs/concepts/hmd-v2)
+- Learn about [Brain Sectors](/docs/concepts/sectors) and sector-specific decay
+- Explore [Reinforcement API](/docs/api/reinforce)
+- Configure [Environment Variables](/docs/advanced/environment-variables)

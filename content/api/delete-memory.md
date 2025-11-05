@@ -16,7 +16,7 @@ DELETE /memory/:id
 ## Authentication
 
 ```bash
-X-API-Key: your_api_key_here
+Authorization: Bearer your_api_key_here
 ```
 
 ## URL Parameters
@@ -44,7 +44,7 @@ interface DeleteMemoryResponse {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
+om = OpenMemory(api_key="your_api_key", base_url="http://localhost:8080")
 
 # Delete a memory
 result = om.delete("mem_7k9n2x4p8q")
@@ -106,19 +106,22 @@ for memory in memories:
 ### TypeScript/Node.js
 
 ```typescript
-import { OpenMemory } from "@openmemory/sdk";
+import OpenMemory from 'openmemory-js';
 
-const om = new OpenMemory({ apiKey: "your_api_key" });
+const om = new OpenMemory({
+  baseUrl: 'http://localhost:8080',
+  apiKey: 'your_api_key',
+});
 
 // Delete a memory
 try {
-  const result = await om.deleteMemory("mem_7k9n2x4p8q");
+  const result = await om.delete('mem_7k9n2x4p8q');
   console.log(`Deleted: ${result.ok}`);
 } catch (error) {
   if (error.statusCode === 404) {
-    console.log("Memory not found");
+    console.log('Memory not found');
   } else {
-    console.error("Delete failed:", error);
+    console.error('Delete failed:', error);
   }
 }
 ```
@@ -126,8 +129,8 @@ try {
 ### cURL
 
 ```bash
-curl -X DELETE https://your-domain.com/memory/mem_7k9n2x4p8q \
-  -H "X-API-Key: your_api_key"
+curl -X DELETE http://localhost:8080/memory/mem_7k9n2x4p8q \
+  -H "Authorization: Bearer your_api_key"
 ```
 
 ## Response Examples

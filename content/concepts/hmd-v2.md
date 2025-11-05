@@ -1,433 +1,707 @@
 ---
-title: HMD v2 Specification
-description: OpenMemory's proprietary algorithm that simulates natural memory decay and reinforcement patterns
+title: HMD v2 (HSG) Specification
+description: OpenMemory's Hierarchical Semantic Graph with tiered decay and adaptive compression
 ---
 
-# HMD v2 Specification
+# HMD v2 (HSG) Specification
 
-**Hierarchical Memory Decay version 2** is OpenMemory's proprietary algorithm that simulates natural memory decay and reinforcement patterns observed in human cognition.
+**Hierarchical Memory Decay version 2** implements a **Hierarchical Semantic Graph (HSG)** architecture with tiered decay, adaptive compression, and automatic regeneration.
 
 ## Overview
 
-Unlike traditional time-based expiration or LRU (Least Recently Used) caching, HMD v2 creates a sophisticated strength-based system where memories:
+HMD v2 differs from traditional caching and memory systems by:
 
-- **Decay naturally** over time
-- **Strengthen with access** and reinforcement
-- **Maintain relationships** through connected memories
-- **Form hierarchies** based on importance
+- **Three-tier classification** (hot/warm/cold) based on recency and activity
+- **Adaptive vector compression** preserving semantic meaning while reducing storage
+- **Fingerprinting** for cold memories with automatic regeneration
+- **Brain-inspired sectors** with sector-specific decay characteristics
+- **Coactivation tracking** to boost frequently accessed memories
 
-## Core Concepts
+This creates a memory system that mimics human cognition: recent and important memories remain vivid, while old memories compress but stay retrievable.
 
-### Memory Strength
+## Core Architecture
 
-Every memory has a strength value (0.0 to 1.0):
+### Tiered Memory States
 
 ```
-strength = initial_strength × decay_factor^time_elapsed × access_multiplier
+┌─────────────────────────────────────────────────┐
+│  HOT (λ=0.005)                                  │
+│  • Recent + High activity                       │
+│  • Full resolution vectors                      │
+│  • No compression                               │
+│  • Criteria: <6 days AND (coact>5 OR sal>0.7)  │
+└─────────────────────────────────────────────────┘
+           ↓ (aging or low activity)
+┌─────────────────────────────────────────────────┐
+│  WARM (λ=0.02)                                  │
+│  • Recent OR moderate salience                  │
+│  • Compressed when f<0.7                        │
+│  • Accessible with minimal latency              │
+│  • Criteria: <6 days OR sal>0.4                 │
+└─────────────────────────────────────────────────┘
+           ↓ (continued inactivity)
+┌─────────────────────────────────────────────────┐
+│  COLD (λ=0.05)                                  │
+│  • Old + low salience                           │
+│  • Heavy compression or fingerprinting          │
+│  • Regenerates on access                        │
+│  • Criteria: Not hot/warm                       │
+└─────────────────────────────────────────────────┘
 ```
 
-- **Initial strength**: 0.5-1.0 (based on importance)
-- **Decay factor**: 0.95-0.99 (slower = better retention)
-- **Access multiplier**: 1.1-1.5 (each access strengthens memory)
+### HSG Tier Configuration
 
-### Decay Curves
+Memory storage tier affects maximum vector dimensions:
 
-HMD v2 uses multiple decay curves for different memory types:
+| Tier   | Dimensions | Cache | Max Active | Features           |
+| ------ | ---------- | ----- | ---------- | ------------------ |
+| Fast   | 256        | 2 seg | 32         | Speed-optimized    |
+| Smart  | 384        | 3 seg | 64         | Balanced           |
+| Deep   | 1536       | 5 seg | 128        | High accuracy      |
+| Hybrid | 256 + BM25 | 3 seg | 64         | Semantic + keyword |
 
-```python
-# Short-term memory (fast decay)
-short_term_curve = lambda t: 0.5 * (0.92 ** t)
+Set via environment variable:
 
-# Long-term memory (slow decay)
-long_term_curve = lambda t: 0.8 * (0.98 ** t)
-
-# Episodic memory (contextual decay)
-episodic_curve = lambda t, context: base_strength * (decay_rate ** t) * context_factor
+```bash
+OM_TIER=hybrid  # Recommended default
 ```
 
 ## Mathematical Model
 
-### Base Decay Formula
+### Tier Classification
 
-```
-S(t) = S₀ × e^(-λt)
-```
+```typescript
+function classify_tier(memory, now_ts): 'hot' | 'warm' | 'cold' {
+  const dt = now_ts - memory.last_seen_at
+  const recent = dt < 6_days
+  const high = memory.coactivations > 5 || memory.salience > 0.7
 
-Where:
-
-- `S(t)` = Strength at time t
-- `S₀` = Initial strength
-- `λ` = Decay constant (derived from decay_rate)
-- `t` = Time elapsed (in configurable units)
-
-### Reinforcement Formula
-
-```
-S_new = min(1.0, S_old + α × (1 - S_old))
+  if (recent && high) return 'hot'
+  if (recent || memory.salience > 0.4) return 'warm'
+  return 'cold'
+}
 ```
 
-Where:
-
-- `α` = Learning rate (0.1-0.3)
-- Asymptotically approaches 1.0 with repeated access
-
-### Context-Aware Decay
+### Decay Formula
 
 ```
-S_contextual = S_base × (1 + β × relatedness)
+f = exp(-λ × dt / (salience + 0.1))
 ```
 
 Where:
 
-- `β` = Context strength factor
-- `relatedness` = Cosine similarity to recently accessed memories
+- `λ` = Tier decay constant (0.005 hot, 0.02 warm, 0.05 cold)
+- `dt` = Days elapsed since last access
+- `salience` = Current strength, boosted by coactivations
 
-## Implementation
+### Salience Calculation
+
+```
+boosted_salience = clamp(
+  base_salience × (1 + ln(1 + coactivations)),
+  0,
+  1
+)
+```
+
+Logarithmic coactivation boost prevents unbounded growth while rewarding access.
+
+### New Salience After Decay
+
+```
+new_salience = clamp(salience × f, 0, 1)
+```
+
+### Compression Target Dimensions
+
+```
+target_dim = floor(original_dim × f)
+target_dim = clamp(target_dim, min_vec_dim, max_vec_dim)
+```
+
+Defaults:
+
+- `min_vec_dim` = 64 (configurable via `OM_MIN_VECTOR_DIM`)
+- `max_vec_dim` = 256/384/1536 (based on `OM_TIER`)
+
+## Implementation Details
 
 ### Memory Structure
 
 ```typescript
-interface Memory {
+interface HSGMemory {
   id: string;
   content: string;
-  embedding: number[];
-  strength: number;
-  decay_rate: number;
-  last_accessed: Date;
-  access_count: number;
-  reinforcement_count: number;
-  created_at: Date;
-  sector_id: string;
+  summary: string;
+  primary_sector:
+    | "episodic"
+    | "semantic"
+    | "procedural"
+    | "emotional"
+    | "reflective";
+  sectors: string[];
+  salience: number; // 0.0-1.0
+  decay_lambda: number; // Sector-specific
+  coactivations: number; // Access count
+  last_seen_at: number; // Timestamp
+  created_at: number;
+  updated_at: number;
+  version: number;
+}
+
+interface HSGVector {
+  id: string;
+  sector: string;
+  vector: number[]; // Adaptive dimensions
 }
 ```
 
-### Decay Calculation
+### Brain Sector Integration
 
-```python
-from datetime import datetime, timedelta
-import math
+Each sector has specialized decay characteristics:
 
-def calculate_current_strength(memory):
-    """Calculate current memory strength using HMD v2"""
-
-    # Time elapsed since last access
-    now = datetime.now()
-    elapsed = (now - memory.last_accessed).total_seconds() / 3600  # hours
-
-    # Base decay
-    base_decay = memory.decay_rate ** elapsed
-
-    # Access multiplier (logarithmic scaling)
-    access_multiplier = 1 + (0.3 * math.log(1 + memory.access_count))
-
-    # Reinforcement boost
-    reinforcement_boost = 1 + (0.2 * memory.reinforcement_count)
-
-    # Combined strength
-    current_strength = (
-        memory.strength
-        * base_decay
-        * access_multiplier
-        * reinforcement_boost
-    )
-
-    return min(1.0, max(0.0, current_strength))
+```typescript
+const sector_configs = {
+  episodic: {
+    decay_lambda: 0.015, // Medium-fast (events fade)
+    weight: 1.2, // Boosted importance
+  },
+  semantic: {
+    decay_lambda: 0.005, // Very slow (facts persist)
+    weight: 1.0, // Standard
+  },
+  procedural: {
+    decay_lambda: 0.008, // Slow (habits stable)
+    weight: 1.1, // Slightly boosted
+  },
+  emotional: {
+    decay_lambda: 0.02, // Fast (emotions fade quickly)
+    weight: 1.3, // Highly boosted
+  },
+  reflective: {
+    decay_lambda: 0.001, // Extremely slow (learnings persist)
+    weight: 0.8, // Background context
+  },
+};
 ```
 
-### Memory Lifecycle
+See [Brain Sectors](/docs/concepts/sectors) for detailed sector information.
+
+### Compression Algorithm
+
+```typescript
+function compress_vector(
+  vec: number[],
+  f: number,
+  min_dim: number,
+  max_dim: number
+): number[] {
+  const target_dim = Math.floor(vec.length * f);
+  const dim = clamp(target_dim, min_dim, Math.min(max_dim, vec.length));
+
+  if (dim >= vec.length) return vec;
+
+  // Pooling-based compression
+  const bucket_size = Math.ceil(vec.length / dim);
+  const compressed = [];
+
+  for (let i = 0; i < vec.length; i += bucket_size) {
+    const bucket = vec.slice(i, i + bucket_size);
+    compressed.push(mean(bucket));
+  }
+
+  return normalize(compressed);
+}
+```
+
+**Example Compression Path**:
 
 ```
-Creation → Active Use → Gradual Decay → Potential Forgetting
-    ↓         ↓              ↓                ↓
-  S=0.8    S=0.95         S=0.4          S<0.1 (archived)
+1536d (f=1.0) → 1075d (f=0.7) → 614d (f=0.4) → 307d (f=0.2) → 64d (min)
 ```
 
-## Decay Tiers
+### Summary Compression
 
-HMD v2 uses tiered decay rates based on importance:
+```typescript
+function compress_summary(
+  text: string,
+  f: number,
+  layers: number
+): string {
+  if (f > 0.8) {
+    // Light: truncate to 200 chars
+    return truncate(text, 200)
+  }
+  if (f > 0.4) {
+    // Medium: extractive summary
+    return summarize_quick(text, max_length: 80)
+  }
+  // Heavy: keywords only
+  return top_keywords(text, count: 5).join(' ')
+}
+```
 
-### Tier 1: Critical Memories
+### Fingerprinting
 
-- **Decay rate**: 0.99
-- **Use case**: System prompts, core knowledge
-- **Half-life**: ~69 days
+When `f < cold_threshold` (default 0.25):
 
-### Tier 2: Important Memories
+```typescript
+function fingerprint_memory(memory: HSGMemory): Fingerprint {
+  // Create deterministic hash vector
+  const hash_input = memory.id + "|" + memory.summary;
+  const fingerprint_vec = hash_to_vec(hash_input, 32); // 32 dimensions
 
-- **Decay rate**: 0.97
-- **Use case**: User preferences, recent context
-- **Half-life**: ~23 days
+  // Extract top keywords
+  const keywords = top_keywords(memory.content, 3);
+  const fingerprint_summary = keywords.join(" ");
 
-### Tier 3: Regular Memories
+  return {
+    vector: normalize(fingerprint_vec),
+    summary: fingerprint_summary,
+  };
+}
+```
 
-- **Decay rate**: 0.95 (default)
-- **Use case**: General information
-- **Half-life**: ~14 days
+Fingerprinted memories:
 
-### Tier 4: Ephemeral Memories
+- Use ~95% less storage
+- Still searchable via keywords
+- Automatically regenerate when accessed
 
-- **Decay rate**: 0.90
-- **Use case**: Temporary context, session data
-- **Half-life**: ~7 days
+## Decay Process
+
+### Periodic Execution
+
+```typescript
+// Runs every OM_DECAY_INTERVAL_MINUTES (default: 1440 = 24 hours)
+// Skips if:
+// - Active queries running (active_q > 0)
+// - Cooldown period not elapsed (<60s since last decay)
+
+async function apply_decay() {
+  for (const segment of memory_segments) {
+    // Process batch (OM_DECAY_RATIO × segment_size)
+    const batch = select_random_batch(segment, ratio: 0.03)
+
+    // Parallel processing across threads
+    await parallelize(batch, threads: OM_DECAY_THREADS)
+  }
+}
+```
+
+### Per-Memory Decay Steps
+
+```typescript
+for (const memory of batch) {
+  // 1. Classify tier
+  const tier = classify_tier(memory, now)
+
+  // 2. Get tier-specific lambda
+  const λ = tier === 'hot' ? 0.005 : tier === 'warm' ? 0.02 : 0.05
+
+  // 3. Calculate decay factor
+  const dt = days_since(memory.last_seen_at)
+  const boosted_sal = memory.salience × (1 + ln(1 + memory.coactivations))
+  const f = exp(-λ × dt / (boosted_sal + 0.1))
+
+  // 4. Apply salience decay
+  const new_salience = clamp(boosted_sal × f, 0, 1)
+
+  // 5. Compress if needed (f < 0.7)
+  if (f < 0.7) {
+    const new_vec = compress_vector(memory.vector, f)
+    const new_summary = compress_summary(memory.summary, f)
+    update_vector(memory.id, new_vec)
+    update_summary(memory.id, new_summary)
+  }
+
+  // 6. Fingerprint if very cold (f < cold_threshold)
+  if (f < 0.25) {
+    const fp = fingerprint_memory(memory)
+    update_vector(memory.id, fp.vector)  // 32d fingerprint
+    update_summary(memory.id, fp.summary)  // Keywords only
+  }
+
+  // 7. Update salience
+  update_salience(memory.id, new_salience)
+}
+```
+
+### Batch Processing Strategy
+
+```typescript
+// Stochastic sampling prevents processing same memories repeatedly
+const batch_size = floor(segment_size × OM_DECAY_RATIO)
+const random_start = random(0, segment_size - batch_size)
+const batch = memories.slice(random_start, random_start + batch_size)
+
+// Distribute across threads for parallelization
+const threads = OM_DECAY_THREADS  // default: 3
+const chunks = chunkify(batch, threads)
+
+// Process in parallel
+await Promise.all(chunks.map(process_chunk))
+
+// Sleep between segments to avoid overwhelming system
+await sleep(OM_DECAY_SLEEP_MS)  // default: 200ms
+```
+
+## Regeneration on Access
+
+### Automatic Regeneration
+
+When a fingerprinted memory is queried:
+
+```typescript
+async function on_query_hit(
+  memory_id: string,
+  sector: string,
+  reembed: (text: string) => Promise<number[]>
+) {
+  const memory = await get_memory(memory_id);
+  const vector = await get_vector(memory_id, sector);
+
+  // Check if fingerprinted (≤64 dimensions)
+  if (vector.length <= 64) {
+    // Regenerate full embedding
+    const original_text = memory.summary || memory.content;
+    const new_vector = await reembed(original_text);
+
+    // Replace fingerprint with full vector
+    await update_vector(memory_id, sector, new_vector);
+
+    console.log(`[hsg] regenerated memory ${memory_id}`);
+  }
+
+  // Reinforce salience
+  if (OM_DECAY_REINFORCE_ON_QUERY) {
+    const new_salience = clamp(memory.salience + 0.5, 0, 1);
+    await update_salience(memory_id, new_salience);
+    await update_last_seen(memory_id, now());
+  }
+}
+```
+
+### Reinforce-on-Query
+
+```typescript
+// Enabled by default (OM_DECAY_REINFORCE_ON_QUERY=true)
+// Prevents useful memories from fading
+
+function reinforce_on_query(memory: HSGMemory) {
+  // Significant boost to salience
+  memory.salience = min(1.0, memory.salience + 0.5);
+
+  // Update access tracking
+  memory.last_seen_at = now();
+  memory.coactivations++;
+
+  // Effect: Memory likely moves to hot/warm tier
+}
+```
 
 ## Configuration
 
-### Setting Decay Rates
+### Environment Variables
 
-```python
-from openmemory import OpenMemory
+```bash
+# Tier system (affects max vector dimensions)
+OM_TIER=hybrid  # fast=256d, smart=384d, deep=1536d, hybrid=256d+BM25
 
-om = OpenMemory(base_url="http://localhost:8080")
+# Decay behavior
+OM_DECAY_THREADS=3  # Parallel processing threads
+OM_DECAY_RATIO=0.03  # Portion of memories to decay per cycle (3%)
+OM_DECAY_SLEEP_MS=200  # Sleep between segment processing
+OM_DECAY_COLD_THRESHOLD=0.25  # Fingerprint threshold
 
-# Add memory with custom decay rate
-om.add(
-    content="Critical system configuration",
-    salience=0.95,  # High importance
-    decay_lambda=0.03  # Very slow decay
-)
+# Compression limits
+OM_MAX_VECTOR_DIM=1536  # Maximum dimensions (set by tier)
+OM_MIN_VECTOR_DIM=64  # Minimum dimensions after compression
+OM_SUMMARY_LAYERS=3  # Summary compression layers (1-3)
 
-# Update existing memory decay rate
-om.update(
-    memory_id="mem_123",
-    metadata={"decay_lambda": 0.05}
-)
+# Regeneration and reinforcement
+OM_DECAY_REINFORCE_ON_QUERY=true  # Auto-reinforce matched memories
+OM_REGENERATION_ENABLED=true  # Regenerate fingerprinted memories
+
+# Decay interval
+OM_DECAY_INTERVAL_MINUTES=1440  # Run decay every 24 hours
 ```
 
-### Brain Sector Configuration
+See [Environment Variables](/docs/advanced/environment-variables) for complete reference.
 
-Different sectors have different default decay rates:
+### Sector-Specific Configuration
 
-```python
-# Get sector configurations
-sectors = om.get_sectors()
+Sectors are configured in `models.yml`:
 
-# Sectors have predefined decay characteristics:
-# - episodic: λ = 0.15 (faster decay for events)
-# - semantic: λ = 0.05 (slower decay for facts)
-# - procedural: λ = 0.08 (moderate for habits)
-# - emotional: λ = 0.20 (fast decay for emotions)
-# - reflective: λ = 0.25 (fastest for logs)
+```yaml
+episodic:
+  ollama: nomic-embed-text
+  openai: text-embedding-3-small
+  gemini: models/embedding-001
+
+semantic:
+  ollama: nomic-embed-text
+  openai: text-embedding-3-small
+  gemini: models/embedding-001
+# ... procedural, emotional, reflective
 ```
 
-## Reinforcement Strategies
+Each sector has hardcoded decay lambda in the implementation:
 
-### Explicit Reinforcement
+- `episodic`: λ = 0.015
+- `semantic`: λ = 0.005
+- `procedural`: λ = 0.008
+- `emotional`: λ = 0.020
+- `reflective`: λ = 0.001
 
-User-triggered strengthening:
+## Performance Characteristics
 
-```python
-# Manually reinforce a memory
-om.reinforce(
-    memory_id="mem_123",
-    boost=0.2  # Increase salience
-)
-```
+### Storage Efficiency
 
-### Implicit Reinforcement
+Compression dramatically reduces storage requirements:
 
-Automatic strengthening on retrieval:
+| State          | Vector Dims | Summary Length | Storage vs Hot |
+| -------------- | ----------- | -------------- | -------------- |
+| Hot (full)     | 1536d       | Full text      | 100%           |
+| Warm (partial) | 1075d       | Summarized     | ~70%           |
+| Warm (more)    | 614d        | Keywords+      | ~40%           |
+| Cold (heavy)   | 307d        | Keywords       | ~20%           |
+| Cold (minimal) | 64d         | 3-5 keywords   | ~5%            |
+| Fingerprinted  | 32d         | 3 keywords     | ~2%            |
 
-````python
-# Query and reinforce
-results = om.query("important topic", k=5)
+**Example**: 100,000 memories at 1536d = 100K memories
 
-# Reinforce memories that were useful
-for match in results["matches"]:
-    om.reinforce(match["id"], boost=0.05)
+- All hot: ~600MB vector storage
+- 50% fingerprinted: ~300MB (50% savings)
+- 80% fingerprinted: ~120MB (80% savings)
 
-### Spaced Repetition
+### Query Performance
 
-Implement spaced repetition algorithms:
-
-```python
-def schedule_review(memory, performance):
-    """SM-2 algorithm for optimal review timing"""
-    if performance >= 3:  # Easy
-        memory.decay_rate = min(0.99, memory.decay_rate + 0.01)
-        return 6  # Review in 6 days
-    elif performance == 2:  # Good
-        return 3  # Review in 3 days
-    else:  # Hard
-        memory.decay_rate = max(0.90, memory.decay_rate - 0.02)
-        return 1  # Review tomorrow
-````
-
-## Query-Time Strength Adjustment
-
-Memories are ranked by adjusted strength during queries:
-
-```python
-def calculate_query_score(memory, query_embedding, query_time):
-    """Calculate relevance score considering strength"""
-
-    # Semantic similarity
-    similarity = cosine_similarity(memory.embedding, query_embedding)
-
-    # Current strength
-    strength = calculate_current_strength(memory)
-
-    # Recency boost
-    hours_since_access = (query_time - memory.last_accessed).total_seconds() / 3600
-    recency = 1.0 if hours_since_access < 24 else 0.8
-
-    # Combined score
-    return similarity * 0.6 + strength * 0.3 + recency * 0.1
-```
-
-## Memory Consolidation
-
-Periodic process to optimize memory graph:
-
-```python
-def consolidate_memories():
-    """Daily consolidation process"""
-
-    # 1. Archive weak memories
-    weak_memories = om.find_memories(max_strength=0.1)
-    om.archive_memories(weak_memories)
-
-    # 2. Merge similar memories
-    similar_clusters = om.find_similar_clusters(threshold=0.95)
-    for cluster in similar_clusters:
-        om.merge_memories(cluster, strategy="strongest")
-
-    # 3. Update waypoints
-    om.rebuild_waypoints()
-
-    # 4. Rebalance sectors
-    om.rebalance_sectors()
-```
-
-## Visualization
-
-### Decay Curve Example
-
-For a memory with decay_rate=0.95:
+Tier distribution affects query speed:
 
 ```
-Strength over time (days):
-Day 0:  ████████████████████ 100%
-Day 7:  ██████████████ 70%
-Day 14: ██████████ 50%
-Day 21: ███████ 35%
-Day 30: █████ 25%
+Hot memories:  <1ms retrieval (full vectors, cached)
+Warm memories: 1-5ms retrieval (compressed but loaded)
+Cold memories: 5-10ms retrieval (heavily compressed)
+Fingerprinted: 10-50ms if matched (requires regeneration)
 ```
 
-### Interactive Decay Visualization
+**Optimization**: Frequently queried memories naturally migrate to hot tier through reinforcement.
 
-```python
-import matplotlib.pyplot as plt
-import numpy as np
+### Memory Distribution
 
-def plot_decay_curves():
-    days = np.linspace(0, 60, 200)
+Healthy distribution example for knowledge base:
 
-    # Different decay rates
-    critical = 0.99 ** (days / 1)
-    important = 0.97 ** (days / 1)
-    regular = 0.95 ** (days / 1)
-    ephemeral = 0.90 ** (days / 1)
-
-    plt.plot(days, critical, label='Critical (0.99)')
-    plt.plot(days, important, label='Important (0.97)')
-    plt.plot(days, regular, label='Regular (0.95)')
-    plt.plot(days, ephemeral, label='Ephemeral (0.90)')
-
-    plt.xlabel('Days')
-    plt.ylabel('Memory Strength')
-    plt.title('HMD v2 Decay Curves')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.show()
+```
+Hot:   15% (recently accessed, high activity)
+Warm:  45% (moderately recent or important)
+Cold:  40% (archived but retrievable)
 ```
 
-## Performance Optimization
+Adjust `OM_DECAY_COLD_THRESHOLD` to shift distribution:
 
-### Batch Strength Updates
-
-```python
-# Update strengths in batch during off-peak hours
-om.batch_update_strengths(
-    update_interval="1 hour",
-    batch_size=1000
-)
-```
-
-### Lazy Evaluation
-
-```python
-# Only calculate strength when needed
-memory.strength  # Cached value
-memory.current_strength  # Calculated on-demand
-```
-
-### Indexing Strategy
-
-```sql
--- Database indexes for efficient strength queries
-CREATE INDEX idx_memory_strength ON memories(strength DESC);
-CREATE INDEX idx_memory_last_accessed ON memories(last_accessed DESC);
-CREATE INDEX idx_memory_sector_strength ON memories(sector_id, strength DESC);
-```
+- Lower threshold (0.15): More hot/warm, less aggressive
+- Higher threshold (0.35): More cold/fingerprinted, more aggressive
 
 ## Advanced Features
 
-### Adaptive Decay
+### Waypoints and Graph Structure
 
-Automatically adjust decay rates based on usage patterns:
+HSG maintains semantic connections between memories:
 
-```python
-om.enable_adaptive_decay(
-    learn_from_patterns=True,
-    adjustment_frequency="weekly"
-)
+```typescript
+interface Waypoint {
+  src_id: string;
+  dst_id: string;
+  weight: number; // Semantic similarity
+  created_at: number;
+  updated_at: number;
+}
 ```
 
-### Context-Dependent Decay
+Waypoints enable:
 
-Memories decay slower when related memories are accessed:
+- Cross-sector memory navigation
+- Related memory discovery
+- Context-aware retrieval
+- Graph-based reasoning
 
-```python
-om.configure_contextual_decay(
-    enabled=True,
-    context_window=7,  # days
-    boost_factor=1.2
-)
+### Coactivation Tracking
+
+Memories accessed together strengthen their connection:
+
+```typescript
+function track_coactivation(memory_ids: string[]) {
+  for (const id of memory_ids) {
+    memory.coactivations++
+
+    // Boost salience via logarithmic scaling
+    memory.salience = clamp(
+      memory.salience × (1 + ln(1 + memory.coactivations)),
+      0,
+      1
+    )
+  }
+}
 ```
 
-### Forgetting Curves
+High coactivation count:
 
-Implement Ebbinghaus forgetting curve:
+- Pushes memory toward hot tier
+- Slows decay rate
+- Increases query relevance
 
-```python
-def ebbinghaus_decay(t, S0=1.0, k=1.84):
-    """
-    R = e^(-t/S)
-    where S = (k / ln(t + 1))
-    """
-    S = k / math.log(t + 1)
-    return S0 * math.exp(-t / S)
+### Query-Time Scoring
+
+Memory relevance combines multiple factors:
+
+```typescript
+function calculate_score(
+  memory: HSGMemory,
+  query_vec: number[],
+  sector_weight: number
+): number {
+  // Semantic similarity
+  const similarity = cosine_similarity(memory.vector, query_vec)
+
+  // Sector-specific weight (emotional=1.3, reflective=0.8, etc.)
+  const weighted_sim = similarity × sector_weight
+
+  // Salience boost
+  const salience_factor = memory.salience
+
+  // Recency boost
+  const hours_since = (now() - memory.last_seen_at) / 3600000
+  const recency_boost = hours_since < 24 ? 1.2 : 1.0
+
+  // Combined score
+  return weighted_sim × (0.7 + salience_factor × 0.3) × recency_boost
+}
 ```
+
+This ensures hot, important, and recent memories rank higher.
+
+## Monitoring and Observability
+
+### Decay Logs
+
+```bash
+# Typical output
+[decay-2.0] 127/3456 | tiers: hot=512 warm=1823 cold=1121 | compressed=23 fingerprinted=8 | 1534.2ms across 18 segments
+```
+
+**Key metrics**:
+
+- `127/3456`: 127 memories changed out of 3456 processed
+- `hot=512`: 512 memories in hot tier (14.8%)
+- `warm=1823`: 1823 in warm tier (52.7%)
+- `cold=1121`: 1121 in cold tier (32.4%)
+- `compressed=23`: 23 vectors compressed this cycle
+- `fingerprinted=8`: 8 memories fingerprinted
+- `1534.2ms`: Processing time
+- `18 segments`: Memory segments processed
+
+### Health Indicators
+
+**Good distribution**:
+
+```
+hot: 10-20%   (active working set)
+warm: 40-60%  (readily accessible)
+cold: 30-50%  (archived, efficient)
+```
+
+**Warning signs**:
+
+```
+hot: >50%     → Decay too slow, storage inefficient
+cold: >70%    → Decay too aggressive, poor recall
+hot: <5%      → Everything decaying, check reinforcement
+```
+
+**Tuning**:
+
+- Increase `OM_DECAY_COLD_THRESHOLD` → More aggressive
+- Decrease `OM_DECAY_COLD_THRESHOLD` → More conservative
+- Enable `OM_DECAY_REINFORCE_ON_QUERY` → Keep useful memories hot
 
 ## Comparison with Alternatives
 
-| Approach   | Pros                                        | Cons                   |
-| ---------- | ------------------------------------------- | ---------------------- |
-| **HMD v2** | Natural decay, reinforcement, context-aware | More complex           |
-| **TTL**    | Simple, predictable                         | Binary (exists or not) |
-| **LRU**    | Easy to implement                           | Ignores importance     |
-| **LFU**    | Frequency-based                             | No decay over time     |
+| System     | Decay Model        | Compression | Regeneration | Sectors | Cost  |
+| ---------- | ------------------ | ----------- | ------------ | ------- | ----- |
+| **HMD v2** | 3-tier exponential | Adaptive    | Yes          | Yes     | $$    |
+| Redis      | TTL (binary)       | None        | No           | No      | $     |
+| LRU Cache  | Eviction-based     | None        | No           | No      | $     |
+| Vector DB  | No decay           | None        | N/A          | No      | $$$$  |
+| Pinecone   | No decay           | None        | N/A          | Limited | $$$$$ |
+
+HMD v2 uniquely combines:
+
+- Natural decay patterns
+- Storage optimization
+- Automatic recovery
+- Brain-inspired organization
 
 ## Best Practices
 
-1. **Set appropriate initial strength** (0.7-0.9 for most memories)
-2. **Use reinforcement** for important memories
-3. **Monitor weak memories** and archive when needed
-4. **Adjust decay rates** based on memory type
-5. **Run consolidation** regularly (daily or weekly)
+### Choose Appropriate Tier
+
+Match your use case:
+
+```bash
+# Speed-critical applications
+OM_TIER=fast  # 256d, fastest queries
+
+# Balanced production
+OM_TIER=hybrid  # 256d + BM25, best of both
+
+# High-accuracy knowledge base
+OM_TIER=deep  # 1536d, maximum semantic fidelity
+```
+
+### Configure Decay Aggressiveness
+
+```bash
+# Long-term knowledge preservation
+OM_DECAY_COLD_THRESHOLD=0.15  # Less aggressive fingerprinting
+
+# Storage-constrained environment
+OM_DECAY_COLD_THRESHOLD=0.35  # More aggressive compression
+
+# Production balanced (default)
+OM_DECAY_COLD_THRESHOLD=0.25
+```
+
+### Enable Reinforcement
+
+```bash
+# Recommended for all production deployments
+OM_DECAY_REINFORCE_ON_QUERY=true
+
+# Prevents frequently-used memories from decaying
+```
+
+### Monitor Distribution
+
+```bash
+# Watch decay logs for tier distribution
+# Adjust thresholds if distribution is unhealthy
+```
+
+### Plan for Regeneration Costs
+
+```bash
+# Regeneration requires embedding API calls
+# Budget for ~5-10% of memories regenerating per day
+
+# Enable regeneration (recommended)
+OM_REGENERATION_ENABLED=true
+```
 
 ## Next Steps
 
-- Learn about [Waypoints & Graph](/docs/concepts/waypoints)
-- Explore [Decay Algorithm](/docs/concepts/decay) visualization
-- See [Reinforcement API](/docs/api/reinforce)
+- Learn about [Decay Algorithm](/docs/concepts/decay) implementation details
+- Understand [Brain Sectors](/docs/concepts/sectors) and sector-specific decay
+- Explore [Waypoints](/docs/concepts/waypoints) for graph navigation
+- Configure [Environment Variables](/docs/advanced/environment-variables)
+- Read about [Embedding Modes](/docs/advanced/embedding-modes) and tier selection

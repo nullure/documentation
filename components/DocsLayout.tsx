@@ -38,6 +38,10 @@ const navigation: NavItem[] = [
             { title: 'Delete Memory', href: '/docs/api/delete-memory' },
             { title: 'Multimodal Ingestion', href: '/docs/api/ingestion' },
             { title: 'Reinforcement', href: '/docs/api/reinforce' },
+            { title: 'User Management', href: '/docs/api/user-management' },
+            { title: 'LangGraph Integration', href: '/docs/api/langgraph' },
+            { title: 'IDE Integration', href: '/docs/api/ide-integration' },
+            { title: 'Compression', href: '/docs/api/compression' },
         ]
     },
     {
@@ -47,6 +51,7 @@ const navigation: NavItem[] = [
             { title: 'Embedding Modes', href: '/docs/advanced/embedding-modes' },
             { title: 'Custom Providers', href: '/docs/advanced/providers' },
             { title: 'Chunking Strategy', href: '/docs/advanced/chunking' },
+            { title: 'Environment Variables', href: '/docs/advanced/environment-variables' },
         ]
     },
 ]

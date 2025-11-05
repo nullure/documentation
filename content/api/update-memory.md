@@ -16,7 +16,7 @@ PATCH /memory/:id
 ## Authentication
 
 ```bash
-X-API-Key: your_api_key_here
+Authorization: Bearer your_api_key_here
 ```
 
 ## URL Parameters
@@ -65,7 +65,7 @@ interface UpdateMemoryResponse {
 ```python
 from openmemory import OpenMemory
 
-om = OpenMemory(base_url="http://localhost:8080", api_key="your_api_key")
+om = OpenMemory(api_key="your_api_key", base_url="http://localhost:8080")
 
 # Update memory content
 result = om.update(
@@ -128,18 +128,21 @@ print(f"Memory fully updated: {result['id']}")
 ### TypeScript/Node.js
 
 ```typescript
-import { OpenMemory } from "@openmemory/sdk";
+import OpenMemory from 'openmemory-js';
 
-const om = new OpenMemory({ apiKey: "your_api_key" });
+const om = new OpenMemory({
+  baseUrl: 'http://localhost:8080',
+  apiKey: 'your_api_key',
+});
 
 // Update memory
-const result = await om.updateMemory("mem_7k9n2x4p8q", {
-  content: "GraphQL provides strongly-typed API queries with introspection",
-  tags: ["graphql", "api", "typescript", "web-development"],
+const result = await om.update('mem_7k9n2x4p8q', {
+  content: 'GraphQL provides strongly-typed API queries with introspection',
+  tags: ['graphql', 'api', 'typescript', 'web-development'],
   metadata: {
-    category: "web_development",
+    category: 'web_development',
     verified: true,
-    updated_by: "user_123",
+    updated_by: 'user_123',
   },
 });
 
@@ -149,9 +152,9 @@ console.log(`Updated version: ${result.version}`);
 ### cURL
 
 ```bash
-curl -X PATCH https://your-domain.com/memory/mem_7k9n2x4p8q \
+curl -X PATCH http://localhost:8080/memory/mem_7k9n2x4p8q \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your_api_key" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "content": "Kubernetes orchestrates containerized applications at scale",
     "tags": ["kubernetes", "containers", "orchestration", "devops"],

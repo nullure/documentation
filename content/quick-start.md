@@ -10,79 +10,84 @@ Get OpenMemory running in just a few minutes.
 ## Prerequisites
 
 - **Node.js 18+** and npm/yarn
-- **Python 3.9+** (for SDK)
-- An API key for embedding provider (OpenAI or Gemini)
+- **Python 3.8+** (for Python SDK)
+- An API key for embedding provider (OpenAI, Gemini, or Voyage AI)
 
 ## Installation
 
-### 1. Clone the Repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/caviraoss/openmemory.git
 cd openmemory
 ```
 
-### 2. Install Backend Dependencies
+### Install Backend Dependencies
 
 ```bash
 cd backend
 npm install
 ```
 
-### 3. Configure Environment
+### Configure Environment
 
 Create a `.env` file in the `backend` directory:
 
 ```env
 # Embedding Provider (openai, gemini, or voyage)
-EMBED_PROVIDER=openai
-OPENAI_API_KEY=your_openai_key_here
-
-# Embedding Mode (simple or advanced)
-EMBED_MODE=simple
+OM_EMBED_PROVIDER=openai
+OM_OPENAI_API_KEY=your_openai_key_here
 
 # Server Configuration
-PORT=3000
+OM_PORT=8080
 
-# Decay Configuration
-DECAY_FACTOR=0.1
+# Database (SQLite is default, no setup required)
+OM_DB_TYPE=sqlite
+OM_DB_PATH=./data/openmemory.sqlite
 
-# Database
-DB_PATH=./data/openmemory.db
+# Memory Tier (fast, smart, deep, hybrid)
+OM_TIER=smart
+
+# Vector Dimensions
+OM_VEC_DIM=1536
 ```
 
 **Gemini Example:**
 
 ```env
-EMBED_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_key_here
+OM_EMBED_PROVIDER=gemini
+OM_GEMINI_API_KEY=your_gemini_key_here
+OM_VEC_DIM=768
 ```
 
 **Voyage AI Example:**
 
 ```env
-EMBED_PROVIDER=voyage
-VOYAGE_API_KEY=your_voyage_key_here
+OM_EMBED_PROVIDER=voyage
+OM_VOYAGE_API_KEY=your_voyage_key_here
+OM_VEC_DIM=1024
 ```
 
-### 4. Build and Start the Server
+### Build and Start the Server
 
 ```bash
 npm run build
 npm start
 ```
 
-The server will start on `http://localhost:3000`.
+The server will start on `http://localhost:8080`.
 
 ## First Memory
 
 ### Add a Memory
 
 ```bash
-curl -X POST http://localhost:3000/memory/add \
+curl -X POST http://localhost:8080/memory/add \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "content": "User prefers dark mode and minimal design",
+    "tags": ["preferences", "ui"],
     "metadata": {
       "source": "preferences",
       "category": "ui"
@@ -94,20 +99,21 @@ curl -X POST http://localhost:3000/memory/add \
 
 ```json
 {
-  "success": true,
-  "memoryId": "mem_abc123",
-  "message": "Memory added successfully"
+  "id": "mem_abc123",
+  "primary_sector": "semantic",
+  "sectors": ["semantic", "procedural"]
 }
 ```
 
 ### Query Memories
 
 ```bash
-curl -X POST http://localhost:3000/memory/query \
+curl -X POST http://localhost:8080/memory/query \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "query": "What are the UI preferences?",
-    "topK": 5
+    "k": 5
   }'
 ```
 
@@ -115,21 +121,19 @@ curl -X POST http://localhost:3000/memory/query \
 
 ```json
 {
-  "results": [
+  "query": "What are the UI preferences?",
+  "matches": [
     {
       "id": "mem_abc123",
       "content": "User prefers dark mode and minimal design",
       "score": 0.89,
-      "metadata": {
-        "source": "preferences",
-        "category": "ui"
-      },
-      "created_at": "2025-01-15T10:30:00Z",
-      "reinforcements": 0
+      "sectors": ["semantic", "procedural"],
+      "primary_sector": "semantic",
+      "path": [],
+      "salience": 0.5,
+      "last_seen_at": 1730880000000
     }
-  ],
-  "query": "What are the UI preferences?",
-  "topK": 5
+  ]
 }
 ```
 
@@ -175,42 +179,82 @@ OpenMemory automatically routes memories to brain sectors:
 
 ```python
 # Query specific sectors
-episodic = om.query_sector("what happened yesterday", "episodic")
-semantic = om.query_sector("user preferences", "semantic")
-procedural = om.query_sector("user habits", "procedural")
-emotional = om.query_sector("frustrations", "emotional")
+episodic = om.query_sector("what happened yesterday", "episodic", k=5)
+semantic = om.query_sector("user preferences", "semantic", k=5)
+procedural = om.query_sector("user habits", "procedural", k=5)
+emotional = om.query_sector("frustrations", "emotional", k=5)
+reflective = om.query_sector("system logs", "reflective", k=5)
 
 # Get all sectors information
-sectors = om.get_sectors()
+sectors = om.sectors()
 print(sectors)
 ```
 
-## Multimodal Ingestion
+## JavaScript/TypeScript SDK
 
-### Ingest a PDF
+### Install SDK
 
 ```bash
-curl -X POST http://localhost:3000/memory/ingest \
-  -F "file=@document.pdf" \
-  -F "metadata={\"source\":\"research_paper\"}"
+npm install openmemory-js
+```
+
+### Use the SDK
+
+```typescript
+import OpenMemory from "openmemory-js";
+
+// Initialize client
+const om = new OpenMemory({
+  baseUrl: "http://localhost:8080",
+  apiKey: "your_api_key",
+});
+
+// Add memory
+const result = await om.add("User loves hiking and outdoor activities", {
+  tags: ["hobbies", "outdoor"],
+  metadata: { category: "hobbies" },
+});
+
+console.log(`Memory ID: ${result.id}`);
+console.log(`Sector: ${result.primary_sector}`);
+
+// Query memories
+const queryResult = await om.query("What does the user enjoy?", { k: 5 });
+
+for (const match of queryResult.matches) {
+  console.log(`Score: ${match.score.toFixed(2)} - ${match.content}`);
+  console.log(`Sector: ${match.primary_sector}`);
+}
+```
+
+## Document Ingestion
+
+### Ingest a Document
+
+```bash
+curl -X POST http://localhost:8080/memory/ingest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
+  -d '{
+    "content_type": "text/plain",
+    "data": "Long document content here...",
+    "metadata": {"source": "document"}
+  }'
 ```
 
 ### Ingest a URL
 
 ```bash
-curl -X POST http://localhost:3000/memory/ingest/url \
+curl -X POST http://localhost:8080/memory/ingest/url \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "url": "https://example.com/article",
     "metadata": {"source": "web"}
   }'
 ```
 
-For documents over 8000 tokens, OpenMemory automatically creates a **root-child structure**:
-
-- Root memory contains a summary
-- Child memories contain sections
-- Waypoints link them together
+For large documents, OpenMemory automatically chunks them into manageable sections.
 
 ## Reinforce Memories
 
@@ -219,6 +263,7 @@ Boost important memories to prevent decay:
 ```bash
 curl -X POST http://localhost:8080/memory/reinforce \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "id": "mem_abc123",
     "boost": 0.2
@@ -232,10 +277,16 @@ Or with Python:
 om.reinforce(memory_id="mem_abc123", boost=0.2)
 ```
 
+Or with JavaScript:
+
+```typescript
+// Reinforce a memory
+await om.reinforce("mem_abc123", 0.2);
+```
+
 ## Next Steps
 
 - **[Core Concepts](/docs/concepts/sectors)**: Understand brain-inspired sectors
 - **[API Reference](/docs/api/add-memory)**: Explore all endpoints
-- **[HMD v2 Specification](/docs/concepts/hmd-v2)**: Learn about multi-sector embeddings
 - **[Decay Algorithm](/docs/concepts/decay)**: Understand memory decay mechanics
-- **[Embedding Modes](/docs/advanced/embedding-modes)**: Optimize with Simple vs Advanced modes
+- **[Memory Tiers](/docs/advanced/providers)**: Learn about fast, smart, deep, and hybrid tiers

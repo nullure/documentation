@@ -62,12 +62,12 @@ docker-compose logs -f openmemory
 The default `docker-compose.yml` includes:
 
 ```yaml
-version: "3.8"
+version: '3.8'
 services:
   openmemory:
     build: ./backend
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       DATABASE_URL: postgresql://postgres:password@db:5432/openmemory
       EMBEDDING_PROVIDER: local
@@ -86,41 +86,7 @@ volumes:
   postgres_data:
 ```
 
-### Method 2: NPM Package (Backend)
-
-Install OpenMemory as a Node.js service.
-
-```bash
-# Create project directory
-mkdir openmemory-server
-cd openmemory-server
-
-# Initialize npm project
-npm init -y
-
-# Install OpenMemory
-npm install @openmemory/server
-
-# Create configuration
-cat > config.json <<EOF
-{
-  "database": {
-    "url": "postgresql://localhost:5432/openmemory"
-  },
-  "server": {
-    "port": 3000
-  },
-  "embedding": {
-    "provider": "local"
-  }
-}
-EOF
-
-# Start server
-npx openmemory start --config config.json
-```
-
-### Method 3: From Source
+### Method 2: From Source (Recommended for Development)
 
 Build and run from source code.
 
@@ -134,26 +100,21 @@ cd openmemory/backend
 # Install dependencies
 npm install
 
-# Set up environment
-cp .env.example .env
-
-# Configure .env
-nano .env  # Edit with your settings
+# Set up environment variables
+# Create .env file with your configuration
+nano .env  # or use your preferred editor
 
 # Build project
 npm run build
-
-# Run migrations
-npm run migrate
 
 # Start server
 npm start
 ```
 
-#### Frontend (Optional)
+#### Dashboard (Optional)
 
 ```bash
-cd ../docs
+cd ../dashboard
 
 # Install dependencies
 npm install
@@ -172,15 +133,30 @@ If you only need the client SDK:
 
 ```bash
 # Install from PyPI
-pip install openmemory
-
-# Or with extras
-pip install openmemory[local]  # Includes local embedding support
+pip install openmemory-py
 
 # Or from source
 git clone https://github.com/caviraoss/openmemory.git
 cd openmemory/sdk-py
 pip install -e .
+```
+
+### Method 5: JavaScript/TypeScript SDK Only
+
+If you only need the JavaScript SDK:
+
+```bash
+# Install from npm
+npm install openmemory-js
+
+# Or with yarn
+yarn add openmemory-js
+
+# Or from source
+git clone https://github.com/caviraoss/openmemory.git
+cd openmemory/sdk-js
+npm install
+npm run build
 ```
 
 ## Database Setup
@@ -239,43 +215,54 @@ psql -U openmemory_user -d openmemory -f migrations/001_initial.sql
 Create `.env` in the backend directory:
 
 ```env
-# === Database ===
-DATABASE_URL=postgresql://openmemory_user:password@localhost:5432/openmemory
+# === Database (Choose one) ===
+# SQLite (default, no setup required)
+OM_DB_TYPE=sqlite
+OM_DB_PATH=./data/openmemory.sqlite
+
+# PostgreSQL (for production)
+# OM_DB_TYPE=postgres
+# OM_DB_HOST=localhost
+# OM_DB_PORT=5432
+# OM_DB_NAME=openmemory
+# OM_DB_USER=postgres
+# OM_DB_PASSWORD=yourpassword
+# OM_DB_SCHEMA=public
+# OM_DB_TABLE=memories
 
 # === Server ===
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=production
+OM_PORT=8080
+OM_HOST=0.0.0.0
 
-# === Security ===
-API_KEY=your_secret_api_key_here
-CORS_ORIGIN=*
+# === API Key (Optional) ===
+OM_API_KEY=your_secret_api_key_here
 
 # === Embedding Provider ===
-# Options: local, openai, cohere, huggingface
-EMBEDDING_PROVIDER=local
+# Options: openai, gemini, voyage
+OM_EMBED_PROVIDER=openai
+OM_OPENAI_API_KEY=sk-...
 
-# If using OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=text-embedding-3-small
+# Or for Gemini:
+# OM_EMBED_PROVIDER=gemini
+# OM_GEMINI_API_KEY=...
 
-# If using Cohere
-COHERE_API_KEY=...
+# Or for Voyage AI:
+# OM_EMBED_PROVIDER=voyage
+# OM_VOYAGE_API_KEY=...
 
-# === Memory Configuration ===
-DEFAULT_DECAY_RATE=0.95
-MAX_MEMORY_HOPS=5
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
+# === Memory Tier ===
+# Options: fast, smart, deep, hybrid
+OM_TIER=smart
 
-# === Performance ===
-MAX_QUERY_RESULTS=100
-CACHE_ENABLED=true
-CACHE_TTL=3600
+# === Vector Dimensions ===
+OM_VEC_DIM=1536
+
+# === Hybrid Tier Settings (if using OM_TIER=hybrid) ===
+OM_KEYWORD_BOOST=2.5
+OM_KEYWORD_MIN_LENGTH=3
 
 # === Logging ===
-LOG_LEVEL=info
-LOG_FILE=./logs/openmemory.log
+OM_LOG_LEVEL=info
 ```
 
 ## Verification
@@ -283,18 +270,29 @@ LOG_FILE=./logs/openmemory.log
 ### Health Check
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:8080/health
 ```
 
 Expected response:
 
 ```json
 {
-  "status": "healthy",
-  "version": "2.0.0",
-  "database": "connected",
-  "embedding": "local",
-  "uptime": 1234
+  "ok": true,
+  "version": "2.0-hsg-tiered",
+  "embedding": {
+    "provider": "openai",
+    "model": "text-embedding-3-small",
+    "dimensions": 1536
+  },
+  "tier": "smart",
+  "dim": 1536,
+  "cache": 50,
+  "expected": {
+    "recall": 85,
+    "qps": "500-600",
+    "ram": "0.9GB/10k",
+    "use": "Production servers"
+  }
 }
 ```
 
@@ -302,21 +300,21 @@ Expected response:
 
 ```bash
 # Add a memory
-curl -X POST http://localhost:3000/api/memory \
+curl -X POST http://localhost:8080/memory/add \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your_api_key" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "content": "Test memory",
     "metadata": {"test": true}
   }'
 
 # Query memories
-curl -X POST http://localhost:3000/api/query \
+curl -X POST http://localhost:8080/memory/query \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your_api_key" \
+  -H "Authorization: Bearer your_api_key" \
   -d '{
     "query": "test",
-    "limit": 5
+    "k": 5
   }'
 ```
 

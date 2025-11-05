@@ -44,7 +44,7 @@ export default function Home() {
                 <meta name="description" content="Production-ready long-term memory system for AI agents. Multi-sector embeddings, intelligent decay, and graph-based knowledge retrieval." />
             </Head>
 
-            <div className="relative min-h-screen bg-black text-gray-100 overflow-hidden">
+            <div className="font-funnel relative min-h-screen bg-black text-gray-100 overflow-hidden">
 
                 <div className="relative z-10">
                     {/* Floating Centered Navigation */}
@@ -118,7 +118,7 @@ export default function Home() {
                                         <span className="text-emerald-400">Production Network</span>
                                     </div>
 
-                                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.12] tracking-tight">
+                                    <h1 className="font-funnel text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.12] tracking-tight">
                                         <span className="block text-white mb-3">Memory that feels</span>
                                         <span className="block text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-violet-300 to-purple-400">handcrafted for autonomous agents</span>
                                     </h1>
@@ -280,7 +280,7 @@ export default function Home() {
                                 <div className="inline-block px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-semibold text-emerald-400 mb-4">
                                     Why OpenMemory
                                 </div>
-                                <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-white">
+                                <h2 className="font-funnel text-4xl sm:text-5xl font-bold mb-4 text-white">
                                     2-3× Faster, 6-10× Cheaper
                                 </h2>
                                 <p className="text-lg text-gray-400 max-w-3xl mx-auto">
@@ -643,7 +643,7 @@ export default function Home() {
                                 <div className="inline-block px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-sm font-semibold text-indigo-400 mb-4">
                                     Features
                                 </div>
-                                <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-white">
+                                <h2 className="font-funnel text-4xl sm:text-5xl font-bold mb-4 text-white">
                                     Everything You Need
                                 </h2>
                                 <p className="text-lg text-gray-400 max-w-2xl mx-auto">
@@ -820,7 +820,7 @@ export default function Home() {
                                 <div className="inline-block px-4 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-sm font-semibold text-purple-400 mb-4">
                                     System Architecture
                                 </div>
-                                <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-white">
+                                <h2 className="font-funnel text-4xl sm:text-5xl font-bold mb-4 text-white">
                                     Hierarchical Memory Decomposition
                                 </h2>
                                 <p className="text-lg text-gray-400 max-w-3xl mx-auto">
@@ -1148,7 +1148,7 @@ export default function Home() {
                                 <div className="inline-block px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-sm font-semibold text-indigo-400 mb-4">
                                     Use Cases
                                 </div>
-                                <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-white">
+                                <h2 className="font-funnel text-4xl sm:text-5xl font-bold mb-4 text-white">
                                     Built for Real Applications
                                 </h2>
                                 <p className="text-lg text-gray-400 max-w-2xl mx-auto">
@@ -1253,7 +1253,7 @@ export default function Home() {
                                 <div className="inline-block px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-sm font-semibold text-indigo-400 mb-4">
                                     Quick Start
                                 </div>
-                                <h2 className="text-4xl sm:text-5xl font-bold mb-4 text-white">
+                                <h2 className="font-funnel text-4xl sm:text-5xl font-bold mb-4 text-white">
                                     Get Started in Minutes
                                 </h2>
                                 <p className="text-lg text-gray-400 max-w-3xl mx-auto">
@@ -1315,7 +1315,7 @@ const { results } = await response.json();
                                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-600/30 bg-indigo-950/30 text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
                                             Launch ready
                                         </div>
-                                        <h2 className="text-4xl sm:text-5xl font-semibold text-white leading-tight">
+                                        <h2 className="font-funnel text-4xl sm:text-5xl font-semibold text-white leading-tight">
                                             Ready to get the memory stack your agents deserve?
                                         </h2>
                                         <p className="text-base sm:text-lg text-gray-400/90 leading-relaxed max-w-2xl">

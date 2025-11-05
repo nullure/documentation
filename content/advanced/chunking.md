@@ -1,181 +1,256 @@
 ---
-title: Chunking Strategy
-description: Optimize how documents are split into memories for better retrieval and context preservation
+title: Document Chunking
+description: How the backend splits large documents into memory chunks
 ---
 
-# Chunking Strategy
+# Document Chunking
 
-Optimize how documents are split into memories for better retrieval and context preservation.
+When you ingest large documents through the backend's `/memory/ingest` endpoint, OpenMemory automatically splits them into manageable chunks. **This is backend behavior** - the SDKs don't have built-in file ingestion.
 
-## Chunking Methods
+## How Backend Chunking Works
 
-### Fixed-Size Chunking
+The backend uses a paragraph-based chunking strategy:
 
-Split text into fixed-length chunks.
+1. **Split by paragraphs**: Documents are split at `\n\n` boundaries
+2. **Group into sections**: Paragraphs are grouped up to ~3000 characters
+3. **Preserve context**: Never splits mid-paragraph
+4. **Create root memory**: For large documents, creates a summary root node
+5. **Link with waypoints**: Connects root to child chunks bidirectionally
 
-**Best for:** Simple documents, quick setup
+## Chunking Algorithm
 
-```python
-om.ingest_file(
-    'document.pdf',
-    chunk_strategy='fixed',
-    chunk_size=512,
-    chunk_overlap=50
-)
-```
+```typescript
+// Backend implementation
+function splitIntoSections(text: string, maxChars: number = 3000): string[] {
+  const paragraphs = text.split(/\n\n+/);
+  const sections: string[] = [];
+  let currentSection = '';
 
-**Pros:**
+  for (const paragraph of paragraphs) {
+    if (
+      currentSection.length + paragraph.length > maxChars &&
+      currentSection.length > 0
+    ) {
+      sections.push(currentSection.trim());
+      currentSection = paragraph;
+    } else {
+      currentSection += '\n\n' + paragraph;
+    }
+  }
 
-- Fast and simple
-- Predictable chunk sizes
-- Low memory usage
+  if (currentSection.length > 0) {
+    sections.push(currentSection.trim());
+  }
 
-**Cons:**
-
-- May split sentences/paragraphs
-- Loses semantic boundaries
-
-### Semantic Chunking
-
-Split based on semantic coherence.
-
-**Best for:** Articles, documentation, books
-
-```python
-om.ingest_file(
-    'article.md',
-    chunk_strategy='semantic',
-    similarity_threshold=0.75
-)
-```
-
-**Pros:**
-
-- Maintains topic coherence
-- Better context preservation
-- Improves retrieval quality
-
-**Cons:**
-
-- Slower processing
-- Variable chunk sizes
-
-### Sentence-Based Chunking
-
-Split at sentence boundaries.
-
-**Best for:** Chat logs, Q&A, structured text
-
-```python
-om.ingest_file(
-    'conversation.txt',
-    chunk_strategy='sentence',
-    sentences_per_chunk=3
-)
-```
-
-### Code-Aware Chunking
-
-Split code by functions/classes.
-
-**Best for:** Source code repositories
-
-```python
-om.ingest_file(
-    'module.py',
-    chunk_strategy='code',
-    split_by='function'  # or 'class', 'method'
-)
+  return sections;
+}
 ```
 
 ## Configuration
 
-### Chunk Size Guidelines
+Backend chunking is configured via environment variables:
 
-| Content Type   | Recommended Size | Strategy   |
-| -------------- | ---------------- | ---------- |
-| Technical docs | 300-500 chars    | Semantic   |
-| Books/Articles | 500-800 chars    | Semantic   |
-| Code           | By function      | Code-aware |
-| Chat/Logs      | 100-200 chars    | Sentence   |
-| API responses  | 200-400 chars    | Fixed      |
+```env
+# Maximum section size (characters)
+OM_CHUNK_SIZE=3000
 
-### Overlap Strategy
-
-```python
-# High overlap - better context but more storage
-om.ingest_file(
-    'document.pdf',
-    chunk_size=500,
-    chunk_overlap=100  # 20% overlap
-)
-
-# Low overlap - less storage but may miss context
-om.ingest_file(
-    'document.pdf',
-    chunk_size=500,
-    chunk_overlap=25  # 5% overlap
-)
+# Token count threshold for root-child structure
+OM_TOKEN_THRESHOLD=8000
 ```
 
-## Advanced Techniques
+## Root-Child Structure
 
-### Hierarchical Chunking
+For large documents (≥8000 tokens):
 
-```python
-# Create parent-child chunk relationships
-om.ingest_file(
-    'book.pdf',
-    chunk_strategy='hierarchical',
-    levels=[
-        {'size': 2000, 'name': 'chapter'},
-        {'size': 500, 'name': 'section'},
-        {'size': 100, 'name': 'paragraph'}
-    ]
-)
+```
+┌─────────────────────────────────┐
+│    Root Memory (Summary)        │
+│  "Document discusses X, Y, Z"   │
+└──┬──────────────┬──────────────┬┘
+   │              │              │
+   │ waypoint     │ waypoint     │ waypoint
+   │              │              │
+┌──▼──────┐  ┌───▼──────┐  ┌───▼──────┐
+│ Chunk 1 │  │ Chunk 2  │  │ Chunk 3  │
+│ Intro   │  │ Body     │  │ Conclusion│
+└─────────┘  └──────────┘  └──────────┘
 ```
 
-### Metadata-Enhanced Chunking
+## Using Document Ingestion
 
-```python
-# Extract and add metadata to chunks
-om.ingest_file(
-    'document.pdf',
-    extract_metadata=True,  # Headers, page numbers, etc.
-    metadata_strategy='inherit'  # Inherit from document
-)
+### Via HTTP API
+
+```bash
+curl -X POST http://localhost:8080/memory/ingest \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
+  -d '{
+    "content_type": "application/pdf",
+    "data": "base64_encoded_pdf_data",
+    "metadata": {"source": "research"}
+  }'
 ```
 
-### Custom Chunking Function
+### Response
 
-```python
-def custom_chunker(text: str) -> list[str]:
-    """Custom chunking logic"""
-    chunks = []
-    # Your logic here
-    return chunks
+```json
+{
+  "success": true,
+  "rootMemoryId": "mem_root_123",
+  "childMemoryIds": ["mem_child_456", "mem_child_789"],
+  "message": "Document ingested with root-child structure",
+  "metadata": {
+    "totalSections": 2,
+    "tokenCount": 9500,
+    "fileType": "pdf"
+  }
+}
+```
 
-om.ingest_file(
-    'document.pdf',
-    chunk_function=custom_chunker
-)
+## Supported File Types
+
+The backend can extract text from:
+
+| Format | Content Type                                                            | Library   |
+| ------ | ----------------------------------------------------------------------- | --------- |
+| PDF    | application/pdf                                                         | pdf-parse |
+| DOCX   | application/vnd.openxmlformats-officedocument.wordprocessingml.document | mammoth   |
+| HTML   | text/html                                                               | turndown  |
+
+## URL Ingestion
+
+```bash
+curl -X POST http://localhost:8080/memory/ingest/url \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_api_key" \
+  -d '{
+    "url": "https://example.com/article",
+    "metadata": {"source": "blog"}
+  }'
 ```
 
 ## Best Practices
 
-1. **Match chunk size to query length** - Similar sizes work better
-2. **Use semantic chunking for quality** - Worth the extra processing
-3. **Add overlap for context** - 10-20% overlap recommended
-4. **Preserve structure** - Keep paragraphs/sections together
-5. **Test and iterate** - Evaluate retrieval quality
+### Optimal Chunk Size
 
-## Performance Impact
+| Content Type   | Recommended Size  |
+| -------------- | ----------------- |
+| Technical docs | 2000-3000 chars   |
+| Books/Articles | 3000-4000 chars   |
+| Code           | By function/class |
+| API docs       | 1000-2000 chars   |
 
-| Strategy   | Speed  | Storage | Quality  |
-| ---------- | ------ | ------- | -------- |
-| Fixed      | ⚡⚡⚡ | ✅      | ⭐⭐     |
-| Sentence   | ⚡⚡   | ✅✅    | ⭐⭐⭐   |
-| Semantic   | ⚡     | ✅✅✅  | ⭐⭐⭐⭐ |
-| Code-aware | ⚡⚡   | ✅✅    | ⭐⭐⭐⭐ |
+Configure via `.env`:
 
-See [Multimodal Ingestion](/docs/api/ingestion) for file ingestion and [Custom Providers](/docs/advanced/providers) for custom chunkers.
+```env
+OM_CHUNK_SIZE=3000
+```
+
+### Metadata Tagging
+
+Always include metadata for better retrieval:
+
+```json
+{
+  "content_type": "application/pdf",
+  "data": "...",
+  "metadata": {
+    "source": "research_papers",
+    "author": "John Doe",
+    "year": 2024,
+    "category": "machine_learning",
+    "filename": "paper.pdf"
+  }
+}
+```
+
+### Query Chunked Documents
+
+After ingestion, query normally:
+
+```python
+from openmemory import OpenMemory
+
+om = OpenMemory(api_key="your_key", base_url="http://localhost:8080")
+
+# Query returns relevant chunks
+result = om.query("machine learning concepts", k=10)
+
+for match in result["matches"]:
+    print(f"[{match['score']:.2f}] {match['content'][:100]}...")
+```
+
+## Limitations
+
+### Current Limitations
+
+- **No custom chunking strategies**: Fixed paragraph-based algorithm
+- **No streaming**: Must send entire document
+- **Text only**: Images and charts are ignored
+- **No OCR**: Scanned PDFs won't work
+
+### File Size Limits
+
+- **Recommended max**: 10 MB per file
+- **Processing time**: 5-10 seconds for large PDFs
+- **Memory usage**: ~3x file size during processing
+
+## Chunk Quality Tips
+
+1. **Well-formatted input**: Clean documents chunk better
+2. **Consistent formatting**: Use consistent paragraph breaks
+3. **Logical structure**: Headers and sections improve chunking
+4. **Avoid giant paragraphs**: Break up walls of text
+
+## Alternative: Manual Chunking
+
+If you need custom chunking, process documents client-side:
+
+```python
+from openmemory import OpenMemory
+
+om = OpenMemory(api_key="your_key", base_url="http://localhost:8080")
+
+# Read and split document yourself
+with open("document.txt", "r") as f:
+    text = f.read()
+
+# Custom chunking logic
+def custom_chunk(text: str, size: int = 500):
+    words = text.split()
+    chunks = []
+    current = []
+
+    for word in words:
+        current.append(word)
+        if len(' '.join(current)) >= size:
+            chunks.append(' '.join(current))
+            current = []
+
+    if current:
+        chunks.append(' '.join(current))
+
+    return chunks
+
+chunks = custom_chunk(text)
+
+# Add each chunk as separate memory
+for i, chunk in enumerate(chunks):
+    om.add(
+        content=chunk,
+        tags=["document", "chunk"],
+        metadata={"chunk_index": i, "total_chunks": len(chunks)}
+    )
+```
+
+## Related Documentation
+
+- [Ingestion API](/docs/api/ingestion) - HTTP endpoints for file ingestion
+- [Multimodal Ingestion](/docs/api/ingestion) - Supported file formats
+- [Waypoints](/docs/concepts/waypoints) - Root-child relationships
+
+## Next Steps
+
+1. Use HTTP API directly for document ingestion
+2. Or implement custom chunking in your application
+3. Query chunks normally through SDKs
