@@ -1,0 +1,32 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://openmemory.ai/sitemap.xml
+
+# Crawl-delay for responsible crawling
+Crawl-delay: 0.5
+
+# Disallow specific paths (add as needed)
+# Disallow: /api/
+# Disallow: /_next/
+
+# Allow all documentation
+Allow: /docs/
+
+# Popular search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /

@@ -1,7 +1,7 @@
 import { GetStaticProps, GetStaticPaths } from 'next'
 import { MDXRemote, MDXRemoteSerializeResult } from 'next-mdx-remote'
-import Head from 'next/head'
 import DocsLayout from '@/components/DocsLayout'
+import SEO, { generateBreadcrumbSchema, generateArticleSchema } from '@/components/SEO'
 import { getDocBySlug, getAllDocSlugs, DocMeta } from '@/lib/mdx'
 
 interface DocPageProps {
@@ -44,12 +44,54 @@ const components = {
 }
 
 export default function DocPage({ meta, source }: DocPageProps) {
+    // Generate breadcrumb items from slug
+    const slugParts = typeof meta.slug === 'string' ? meta.slug.split('/') : []
+    const breadcrumbItems = [
+        { name: 'Home', url: 'https://openmemory.ai' },
+        { name: 'Documentation', url: 'https://openmemory.ai/docs' },
+        ...slugParts.map((part: string, index: number) => ({
+            name: part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
+            url: `https://openmemory.ai/docs/${slugParts.slice(0, index + 1).join('/')}`
+        }))
+    ]
+
+    // Generate structured data
+    const structuredData = {
+        "@context": "https://schema.org",
+        "@graph": [
+            generateBreadcrumbSchema(breadcrumbItems),
+            generateArticleSchema({
+                headline: String(meta.title),
+                description: String(meta.description || ''),
+                author: 'OpenMemory Team',
+                datePublished: new Date().toISOString(),
+                dateModified: new Date().toISOString(),
+                url: `https://openmemory.ai/docs/${meta.slug}`
+            })
+        ]
+    }
+
+    const pageUrl = `https://openmemory.ai/docs/${meta.slug}`
+    const pageTitle = `${String(meta.title)} - OpenMemory Documentation`
+    const pageDescription = String(meta.description || `Learn about ${String(meta.title)} in OpenMemory's comprehensive documentation. Production-ready long-term memory for AI agents.`)
+
     return (
         <DocsLayout>
-            <Head>
-                <title>{String(meta.title)} - OpenMemory Documentation</title>
-                {meta.description && <meta name="description" content={String(meta.description)} />}
-            </Head>
+            <SEO
+                title={pageTitle}
+                description={pageDescription}
+                canonical={pageUrl}
+                ogType="article"
+                ogImage="https://openmemory.ai/og-docs.png"
+                article={{
+                    publishedTime: new Date().toISOString(),
+                    modifiedTime: new Date().toISOString(),
+                    author: 'OpenMemory Team',
+                    section: slugParts[0] ? slugParts[0].charAt(0).toUpperCase() + slugParts[0].slice(1) : 'Documentation',
+                    tags: slugParts.map((s: string) => s.replace(/-/g, ' '))
+                }}
+                structuredData={structuredData}
+            />
 
             <div className="mb-8 pb-6 border-b border-dark-700">
                 <h1 className="text-4xl md:text-5xl font-bold text-gray-50 mb-4 tracking-tight">{String(meta.title)}</h1>

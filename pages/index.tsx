@@ -1,6 +1,6 @@
-import Head from 'next/head'
 import Link from 'next/link'
 import CodeBlock from '../components/code'
+import SEO, { generateOrganizationSchema, generateSoftwareSchema } from '../components/SEO'
 import { useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
@@ -37,12 +37,42 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function Home() {
     const [activeTab, setActiveTab] = useState<'python' | 'javascript'>('python')
 
+    // Structured data for rich snippets
+    const structuredData = {
+        "@context": "https://schema.org",
+        "@graph": [
+            generateOrganizationSchema(),
+            generateSoftwareSchema(),
+            {
+                "@type": "WebSite",
+                "name": "OpenMemory",
+                "url": "https://openmemory.ai",
+                "description": "Production-ready long-term memory system for AI agents",
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": "https://openmemory.ai/docs?q={search_term_string}",
+                    "query-input": "required name=search_term_string"
+                }
+            },
+            {
+                "@type": "WebPage",
+                "name": "OpenMemory - Long-term Memory for AI Agents",
+                "description": "Production-ready long-term memory system for AI agents. Multi-sector embeddings, intelligent decay, and graph-based knowledge retrieval. Deploy in minutes.",
+                "url": "https://openmemory.ai"
+            }
+        ]
+    }
+
     return (
         <>
-            <Head>
-                <title>OpenMemory - Long-term Memory for AI Agents</title>
-                <meta name="description" content="Production-ready long-term memory system for AI agents. Multi-sector embeddings, intelligent decay, and graph-based knowledge retrieval." />
-            </Head>
+            <SEO
+                title="OpenMemory - Long-term Memory for AI Agents"
+                description="Production-ready long-term memory system for AI agents. Multi-sector embeddings, intelligent decay, and graph-based knowledge retrieval. Deploy in minutes with HMD v2, automatic decay curves, and waypoint navigation."
+                canonical="https://openmemory.ai"
+                ogImage="https://openmemory.ai/og-image.png"
+                ogType="website"
+                structuredData={structuredData}
+            />
 
             <div className="font-funnel relative min-h-screen bg-black text-gray-100 overflow-hidden">
 
@@ -80,18 +110,25 @@ export default function Home() {
                                     </Link>
                                 </div>
 
-                                {/* GitHub Button */}
-                                <a
-                                    href="https://github.com/caviraoss/openmemory"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/25"
-                                >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                                    </svg>
-                                    GitHub
-                                </a>
+                                {/* Premium GitHub Button - Cavira Style */}
+                                <div className="relative p-px h-fit w-fit overflow-hidden rounded-xl border border-white/5 group">
+                                    <div className="absolute size-32 -top-3 -left-3 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 blur-lg opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                                    <div className="absolute backdrop-blur-md w-full h-full rounded-xl"></div>
+                                    <a
+                                        href="https://github.com/caviraoss/openmemory"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="relative block rounded-xl overflow-hidden shadow border border-white/5"
+                                    >
+                                        <div className="absolute w-full h-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 group-hover:from-indigo-500 group-hover:to-violet-500 transition-all"></div>
+                                        <div className="relative px-5 py-2.5 flex items-center gap-2 text-white text-sm font-semibold">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                                            </svg>
+                                            GitHub
+                                        </div>
+                                    </a>
+                                </div>
                             </div>
                         </nav>
                     </header>
@@ -128,18 +165,28 @@ export default function Home() {
                                     </p>
 
                                     <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                                        <Link
-                                            href="/docs/quick-start"
-                                            className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-base rounded-xl transition-all shadow-[0_20px_45px_-20px_rgba(99,102,241,0.6)]"
-                                        >
-                                            Deploy in minutes
-                                            <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                            </svg>
-                                        </Link>
+                                        {/* Premium CTA Button - Cavira Style */}
+                                        <div className="relative p-1.5 h-fit w-fit overflow-hidden rounded-xl border border-white/5 group">
+                                            <div className="absolute size-64 -top-6 -left-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 blur-lg opacity-20 animate-spin"></div>
+                                            <div className="absolute backdrop-blur-md w-full h-full rounded-xl"></div>
+                                            <Link
+                                                href="/docs/quick-start"
+                                                className="relative block rounded-xl overflow-hidden shadow border border-white/5"
+                                            >
+                                                <div className="absolute w-full h-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 group-hover:from-indigo-500 group-hover:to-violet-500 transition-all"></div>
+                                                <div className="relative px-8 py-3.5 flex items-center gap-2 text-white font-semibold text-base">
+                                                    <span>Deploy in minutes</span>
+                                                    <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                    </svg>
+                                                </div>
+                                            </Link>
+                                        </div>
+
+                                        {/* Secondary Button - Cavira Style */}
                                         <Link
                                             href="/docs/introduction"
-                                            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl border border-slate-700/50 text-white/80 hover:text-white hover:border-indigo-600/50 transition-all"
+                                            className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl border border-stone-800 bg-stone-950/50 text-white/80 hover:text-white hover:bg-stone-900/50 hover:border-indigo-600/50 transition-all"
                                         >
                                             Explore docs
                                             <svg className="w-4 h-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -149,15 +196,25 @@ export default function Home() {
                                     </div>
 
                                     <div className="grid sm:grid-cols-2 gap-4 pt-6 border-t border-slate-800/40">
+                                        {/* Status Icons - Cavira Style */}
                                         <div className="flex items-start gap-3">
-                                            <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs font-semibold uppercase tracking-widest">01</div>
+                                            <div className="rounded-xl border border-indigo-500/15 p-2 text-indigo-500 bg-indigo-500/10">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                                    <path d="M11.644 1.59a.75.75 0 01.712 0l9.75 5.25a.75.75 0 010 1.32l-9.75 5.25a.75.75 0 01-.712 0l-9.75-5.25a.75.75 0 010-1.32l9.75-5.25z" />
+                                                    <path d="M3.265 10.602l7.668 4.129a2.25 2.25 0 002.134 0l7.668-4.13 1.37.739a.75.75 0 010 1.32l-9.75 5.25a.75.75 0 01-.71 0l-9.75-5.25a.75.75 0 010-1.32l1.37-.738z" />
+                                                </svg>
+                                            </div>
                                             <div>
                                                 <p className="text-sm font-semibold text-white">Five-sector embeddings</p>
                                                 <p className="text-sm text-gray-500">Factual, emotional, temporal, relational, and behavioral memory.</p>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
-                                            <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-xs font-semibold uppercase tracking-widest">02</div>
+                                            <div className="rounded-xl border border-emerald-500/15 p-2 text-emerald-500 bg-emerald-500/10">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
+                                                    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
                                             <div>
                                                 <p className="text-sm font-semibold text-white">Graceful decay curves</p>
                                                 <p className="text-sm text-gray-500">Automatic reinforcement keeps relevant context always sharp.</p>
@@ -168,9 +225,10 @@ export default function Home() {
                                     <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500/80 pt-2">
                                         <span className="uppercase tracking-[0.3em] text-gray-600/80 text-xs">Trusted by teams building</span>
                                         <div className="flex flex-wrap gap-3">
-                                            <div className="px-3 py-1.5 rounded-full border border-slate-700/50 text-white/80 bg-slate-900/40">Agents</div>
-                                            <div className="px-3 py-1.5 rounded-full border border-slate-700/50 text-white/80 bg-slate-900/40">Assistants</div>
-                                            <div className="px-3 py-1.5 rounded-full border border-slate-700/50 text-white/80 bg-slate-900/40">Knowledge Graphs</div>
+                                            {/* Cavira-style badges */}
+                                            <div className="px-3 py-1.5 rounded-full border border-stone-800 text-white/80 bg-stone-950/50 hover:bg-stone-900/50 transition-colors">Agents</div>
+                                            <div className="px-3 py-1.5 rounded-full border border-stone-800 text-white/80 bg-stone-950/50 hover:bg-stone-900/50 transition-colors">Assistants</div>
+                                            <div className="px-3 py-1.5 rounded-full border border-stone-800 text-white/80 bg-stone-950/50 hover:bg-stone-900/50 transition-colors">Knowledge Graphs</div>
                                         </div>
                                     </div>
                                 </div>
