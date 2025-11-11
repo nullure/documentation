@@ -37,6 +37,8 @@ const navigation: NavItem[] = [
             { title: 'Update Memory', href: '/docs/api/update-memory' },
             { title: 'Delete Memory', href: '/docs/api/delete-memory' },
             { title: 'Multimodal Ingestion', href: '/docs/api/ingestion' },
+            { title: 'MCP Integration', href: '/docs/api/mcp' },
+            { title: 'Temporal Graphs', href: '/docs/api/temporal' },
             { title: 'Reinforcement', href: '/docs/api/reinforce' },
             { title: 'User Management', href: '/docs/api/user-management' },
             { title: 'LangGraph Integration', href: '/docs/api/langgraph' },
