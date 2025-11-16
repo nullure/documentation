@@ -47,6 +47,13 @@ const navigation: NavItem[] = [
         ]
     },
     {
+        title: 'Integrations',
+        href: '/docs/integrations',
+        children: [
+            { title: 'Vercel AI SDK', href: '/docs/integrations/vercel-ai' },
+        ]
+    },
+    {
         title: 'Advanced',
         href: '/docs/advanced',
         children: [
