@@ -12,6 +12,7 @@ export default function Document() {
                 <link rel="manifest" href="/site.webmanifest" />
 
                 {/* SEO Meta Tags */}
+                <meta name="google-site-verification" content="Pd534PQ2aWGfjUWL8bOIeM6KQr0QwLmQYR4OOWUECzI" />
                 <meta name="theme-color" content="#8b5cf6" />
                 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
                 <meta name="googlebot" content="index, follow" />

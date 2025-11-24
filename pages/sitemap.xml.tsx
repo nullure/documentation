@@ -14,7 +14,7 @@ function generateSiteMap(pages: string[]) {
 ${pages
             .map((page) => {
                 return `    <url>
-        <loc>https://openmemory.ai${page}</loc>
+        <loc>https://openmemory.cavira.app${page}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
         <changefreq>${page === '/' ? 'daily' : 'weekly'}</changefreq>
         <priority>${page === '/' ? '1.0' : '0.8'}</priority>
@@ -44,7 +44,7 @@ function SiteMap() {
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-    const baseUrl = 'https://openmemory.ai'
+    const baseUrl = 'https://openmemory.cavira.app'
 
     // Static pages
     const staticPages = [
