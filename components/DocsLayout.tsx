@@ -10,57 +10,86 @@ interface NavItem {
 
 const navigation: NavItem[] = [
     {
-        title: 'Getting Started',
-        href: '/docs/getting-started',
+        title: 'Introduction',
+        href: '/docs/introduction',
         children: [
-            { title: 'Introduction', href: '/docs/introduction' },
-            { title: 'Quick Start', href: '/docs/quick-start' },
-            { title: 'Installation', href: '/docs/installation' },
+            { title: 'What is OpenMemory', href: '/docs/introduction' },
+            { title: 'Standalone vs Backend', href: '/docs/standalone' },
         ]
     },
     {
-        title: 'Core Concepts',
-        href: '/docs/concepts',
+        title: 'Getting Started',
+        href: '/docs/getting-started',
         children: [
-            { title: 'Memory Sectors', href: '/docs/concepts/sectors' },
-            { title: 'HMD v2 Specification', href: '/docs/concepts/hmd-v2' },
-            { title: 'Waypoints & Graph', href: '/docs/concepts/waypoints' },
-            { title: 'Decay Algorithm', href: '/docs/concepts/decay' },
+            { title: 'Install', href: '/docs/installation' },
+            { title: 'Quick Start (Standalone)', href: '/docs/quick-start' },
+            { title: 'Quick Start (Backend)', href: '/docs/quick-start-backend' },
+        ]
+    },
+    {
+        title: 'SDKs',
+        href: '/docs/sdks',
+        children: [
+            { title: 'JavaScript', href: '/docs/sdks/javascript' },
+            { title: 'Python', href: '/docs/sdks/python' },
         ]
     },
     {
         title: 'API Reference',
         href: '/docs/api',
         children: [
+            { title: 'API Routes', href: '/docs/api/routes' },
             { title: 'Add Memory', href: '/docs/api/add-memory' },
             { title: 'Query Memory', href: '/docs/api/query' },
-            { title: 'Update Memory', href: '/docs/api/update-memory' },
-            { title: 'Delete Memory', href: '/docs/api/delete-memory' },
-            { title: 'Multimodal Ingestion', href: '/docs/api/ingestion' },
-            { title: 'MCP Integration', href: '/docs/api/mcp' },
-            { title: 'Temporal Graphs', href: '/docs/api/temporal' },
-            { title: 'Reinforcement', href: '/docs/api/reinforce' },
-            { title: 'User Management', href: '/docs/api/user-management' },
-            { title: 'LangGraph Integration', href: '/docs/api/langgraph' },
-            { title: 'IDE Integration', href: '/docs/api/ide-integration' },
-            { title: 'Compression', href: '/docs/api/compression' },
         ]
     },
     {
-        title: 'Integrations',
-        href: '/docs/integrations',
+        title: 'Core Concepts',
+        href: '/docs/concepts',
         children: [
-            { title: 'Vercel AI SDK', href: '/docs/integrations/vercel-ai' },
+            { title: 'Sectors', href: '/docs/concepts/sectors' },
+            { title: 'Decay', href: '/docs/concepts/decay' },
+            { title: 'Salience', href: '/docs/concepts/salience' },
+            { title: 'Associations', href: '/docs/concepts/associations' },
+            { title: 'Temporal Graph', href: '/docs/concepts/temporal-graph' },
         ]
     },
     {
         title: 'Advanced',
         href: '/docs/advanced',
         children: [
-            { title: 'Embedding Modes', href: '/docs/advanced/embedding-modes' },
-            { title: 'Custom Providers', href: '/docs/advanced/providers' },
-            { title: 'Chunking Strategy', href: '/docs/advanced/chunking' },
-            { title: 'Environment Variables', href: '/docs/advanced/environment-variables' },
+            { title: 'Embeddings', href: '/docs/advanced/embedding-modes' },
+            { title: 'Ingestion', href: '/docs/advanced/ingestion' },
+            { title: 'MCP Server', href: '/docs/integrations/mcp' },
+            { title: 'LangGraph Mode', href: '/docs/advanced/langgraph' },
+        ]
+    },
+    {
+        title: 'Examples',
+        href: '/docs/examples',
+        children: [
+            { title: 'Agents', href: '/docs/examples/agents' },
+            { title: 'Claude Desktop', href: '/docs/examples/claude' },
+            { title: 'Python Chatbot', href: '/docs/examples/python-chatbot' },
+            { title: 'Node.js Assistant', href: '/docs/examples/nodejs-assistant' },
+        ]
+    },
+    {
+        title: 'Deployment',
+        href: '/docs/deployment',
+        children: [
+            { title: 'Backend Setup', href: '/docs/deployment/backend' },
+            { title: 'Docker', href: '/docs/deployment/docker' },
+            { title: 'Vercel / Railway', href: '/docs/deployment/cloud' },
+        ]
+    },
+    {
+        title: 'Migration',
+        href: '/docs/migration',
+        children: [
+            { title: 'From Mem0', href: '/docs/migration/mem0' },
+            { title: 'From Supermemory', href: '/docs/migration/supermemory' },
+            { title: 'From Zep', href: '/docs/migration/zep' },
         ]
     },
 ]
